@@ -1,0 +1,27 @@
+/node_modules/
+
+# Generated web build outputs
+/assets/
+/dist/
+/protected/
+/native-secure/
+/signs-static.json
+
+# Local deployment tooling outputs
+/.netlify/
+/.zisi-out/
+/tmp/
+
+# Android generated artifacts
+/android/.gradle/
+/android/**/build/
+/android/app/src/main/assets/public/
+/android/app/src/main/assets/secure/
+/android/app/src/main/assets/capacitor.config.json
+/android/app/src/main/assets/capacitor.plugins.json
+/android/capacitor-cordova-android-plugins/
+/android/local.properties
+/.git_backup_*/
+
+# Editor files
+/.vscode/

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yo'l harakati qoidalari - Test dasturi</title>
+    <meta name="description" content="Yo'l harakati qoidalari bo'yicha bilimingizni sinab ko'ring. 62 ta bilet: 61 ta bilet 20 tadan savol, 62-bilet 3 ta savol.">
+    <meta name="theme-color" content="#eef4f8">
+    <link rel="icon" type="image/png" href="images/favicon-circle.png">
+    <link rel="shortcut icon" href="images/favicon-circle.png">
+    <script>
+        (function () {
+            try {
+                const key = 'themePreference';
+                const saved = localStorage.getItem(key);
+                const theme = (saved === 'light' || saved === 'dark')
+                    ? saved
+                    : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (error) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                        <rect width="32" height="32" rx="8" fill="url(#logo-gradient)"/>
+                        <path d="M16 8L20 12H18V20H14V12H12L16 8Z" fill="white"/>
+                        <path d="M10 22H22V24H10V22Z" fill="white"/>
+                        <defs>
+                            <linearGradient id="logo-gradient" x1="0" y1="0" x2="32" y2="32">
+                                <stop stop-color="#3B82F6"/>
+                                <stop offset="1" stop-color="#00A896"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <span>YHQ Test</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="main">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <rect x="3" y="3" width="6" height="6" rx="1"/>
+                        <rect x="11" y="3" width="6" height="6" rx="1"/>
+                        <rect x="3" y="11" width="6" height="6" rx="1"/>
+                        <rect x="11" y="11" width="6" height="6" rx="1"/>
+                    </svg>
+                    <span>Asosiy</span>
+                </a>
+                
+                <a href="#" class="nav-item" data-page="signs">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 2L17 10L10 18L3 10L10 2Z"/>
+                    </svg>
+                    <span>Belgilar</span>
+                </a>
+                
+                <a href="#" class="nav-item" data-page="search">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <circle cx="9" cy="9" r="5" stroke="currentColor" stroke-width="2" fill="none"/>
+                        <path d="M13 13L17 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <span>Qidiruv</span>
+                </a>
+                
+                <a href="#" class="nav-item" data-page="fines">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <rect x="4" y="2" width="12" height="16" rx="2" stroke="currentColor" stroke-width="2" fill="none"/>
+                        <line x1="7" y1="6" x2="13" y2="6" stroke="currentColor" stroke-width="2"/>
+                        <line x1="7" y1="10" x2="13" y2="10" stroke="currentColor" stroke-width="2"/>
+                        <line x1="7" y1="14" x2="10" y2="14" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    <span>Jarima va ballar</span>
+                </a>
+                
+                <a href="#" class="nav-item" data-page="settings">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 12.5C11.3807 12.5 12.5 11.3807 12.5 10C12.5 8.61929 11.3807 7.5 10 7.5C8.61929 7.5 7.5 8.61929 7.5 10C7.5 11.3807 8.61929 12.5 10 12.5Z"/>
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M8.5 2H11.5L12 4.5C12.8 4.8 13.5 5.2 14.1 5.7L16.5 4.8L18 7.2L16.2 9C16.3 9.3 16.4 9.6 16.4 10C16.4 10.4 16.3 10.7 16.2 11L18 12.8L16.5 15.2L14.1 14.3C13.5 14.8 12.8 15.2 12 15.5L11.5 18H8.5L8 15.5C7.2 15.2 6.5 14.8 5.9 14.3L3.5 15.2L2 12.8L3.8 11C3.7 10.7 3.6 10.4 3.6 10C3.6 9.6 3.7 9.3 3.8 9L2 7.2L3.5 4.8L5.9 5.7C6.5 5.2 7.2 4.8 8 4.5L8.5 2Z"/>
+                    </svg>
+                    <span>Sozlamalar</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <button id="mobile-header-back-btn" class="mobile-header-back-btn" type="button" aria-label="Orqaga">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+                <div class="header-main">
+                    <h1 id="page-title">Asosiy</h1>
+                    <p id="page-subtitle" class="page-subtitle">Haydovchilik imtihoniga tayyorgarlik</p>
+                </div>
+                <div class="header-actions">
+                    <div id="header-desktop-actions" class="header-desktop-actions"></div>
+                    <button id="mobile-share-btn" class="mobile-share-btn" type="button" aria-label="Ulashish">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="18" cy="5" r="3"/>
+                            <circle cx="6" cy="12" r="3"/>
+                            <circle cx="18" cy="19" r="3"/>
+                            <path d="M8.6 13.5L15.4 17.4M15.4 6.6L8.6 10.5"/>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div id="page-content" class="page-content">
+                <!-- Main Page -->
+                <div class="content-section active" id="main-page">
+                </div>
+
+                <!-- Other pages (will be populated via JS) -->
+                <div class="content-section" id="signs-page"></div>
+
+                <div class="content-section" id="search-page">
+                    <div class="search-shell">
+                        <section class="search-panel search-panel-form">
+                            <form id="search-form" class="search-form" autocomplete="off">
+                                <div class="search-field search-field-wide">
+                                    <label for="search-text-input">Matn bo'yicha qidiruv</label>
+                                    <div class="search-input-wrap">
+                                        <span class="search-input-icon" aria-hidden="true">
+                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                                                <circle cx="9" cy="9" r="5"></circle>
+                                                <path d="M13 13l4 4" stroke-linecap="round"></path>
+                                            </svg>
+                                        </span>
+                                        <input
+                                            id="search-text-input"
+                                            class="search-input"
+                                            type="search"
+                                            placeholder="Savol matni yoki javob varianti..."
+                                            inputmode="search"
+                                        >
+                                    </div>
+                                </div>
+
+                                <div class="search-field">
+                                    <label for="search-ticket-input">Bilet raqami</label>
+                                    <input
+                                        id="search-ticket-input"
+                                        class="search-input search-input-ticket"
+                                        type="number"
+                                        min="1"
+                                        step="1"
+                                        placeholder="Masalan: 12"
+                                        inputmode="numeric"
+                                    >
+                                </div>
+
+                                <div class="search-actions">
+                                    <button type="submit" class="search-btn search-btn-primary">Qidirish</button>
+                                    <button type="button" id="search-clear-btn" class="search-btn search-btn-ghost">Tozalash</button>
+                                </div>
+                            </form>
+
+                            <div id="search-status" class="search-status">
+                                Savol matni yoki bilet raqami kiriting.
+                            </div>
+                            <div id="search-results" class="search-results" aria-live="polite"></div>
+                        </section>
+                    </div>
+                </div>
+
+                <div class="content-section" id="fines-page">
+                    <div class="coming-soon">
+                        <h2>Jarima va ballar</h2>
+                        <p>Tez orada...</p>
+                    </div>
+                </div>
+
+                <div class="content-section" id="settings-page">
+                    <div class="settings-panel">
+                        <h2>Tema</h2>
+                        <p>Ilova ko'rinishini tanlang</p>
+                        <div class="settings-theme-group" role="group" aria-label="Tema tanlash">
+                            <button type="button" class="settings-theme-btn" data-theme-option="light">Light</button>
+                            <button type="button" class="settings-theme-btn" data-theme-option="dark">Dark</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-mobile-layout" aria-label="Mobil sozlamalar">
+                        <section class="settings-mobile-section">
+                            <h3 class="settings-mobile-section-title">Ilova sozlamalari</h3>
+                            <div class="settings-mobile-card">
+                                <button type="button" class="settings-mobile-row settings-mobile-row-link" id="language-setting-btn" aria-label="Til: O'zbekcha">
+                                    <span class="settings-mobile-icon tone-blue" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="8"></circle>
+                                            <path d="M4 12h16"></path>
+                                            <path d="M12 4a13 13 0 0 1 0 16"></path>
+                                            <path d="M12 4a13 13 0 0 0 0 16"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="settings-mobile-row-main">
+                                        <span class="settings-mobile-row-label">Til</span>
+                                    </span>
+                                    <span class="settings-mobile-row-value" id="language-setting-value">O'zbekcha</span>
+                                    <span class="settings-mobile-chevron" aria-hidden="true">
+                                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M7 4l6 6-6 6"></path>
+                                        </svg>
+                                    </span>
+                                </button>
+
+                                <button type="button" class="settings-mobile-row settings-mobile-row-link" id="app-intro-btn" aria-label="Ilova bilan tanishish">
+                                    <span class="settings-mobile-icon tone-green" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M12 3v18"></path>
+                                            <path d="M5 8l7-5 7 5"></path>
+                                            <path d="M7 14h10"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="settings-mobile-row-main">
+                                        <span class="settings-mobile-row-label">Ilova bilan tanishish</span>
+                                    </span>
+                                    <span class="settings-mobile-chevron" aria-hidden="true">
+                                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M7 4l6 6-6 6"></path>
+                                        </svg>
+                                    </span>
+                                </button>
+
+                                <div class="settings-mobile-row">
+                                    <span class="settings-mobile-icon tone-violet" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M20 14.5A7.5 7.5 0 1 1 9.5 4 6 6 0 0 0 20 14.5z"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="settings-mobile-row-main">
+                                        <span class="settings-mobile-row-label">Tungi rejim</span>
+                                    </span>
+                                    <button type="button" class="mobile-switch" id="mobile-theme-switch" role="switch" aria-checked="false" aria-label="Tungi rejim"></button>
+                                </div>
+
+                                <div class="settings-mobile-row">
+                                    <span class="settings-mobile-icon tone-orange" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M18 9a6 6 0 1 0-12 0c0 7-3 6-3 8h18c0-2-3-1-3-8"></path>
+                                            <path d="M10 20a2 2 0 0 0 4 0"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="settings-mobile-row-main">
+                                        <span class="settings-mobile-row-label">Bildirishnomalar</span>
+                                    </span>
+                                    <button type="button" class="mobile-switch active" data-toggle-local="notifications" role="switch" aria-checked="true" aria-label="Bildirishnomalar"></button>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="settings-mobile-section">
+                            <h3 class="settings-mobile-section-title">Imtihon sozlamalari</h3>
+                            <div class="settings-mobile-card">
+                                <div class="settings-mobile-row settings-mobile-row-tall">
+                                    <span class="settings-mobile-icon tone-slate" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path>
+                                            <circle cx="12" cy="12" r="2.5"></circle>
+                                        </svg>
+                                    </span>
+                                    <span class="settings-mobile-row-main">
+                                        <span class="settings-mobile-row-label">Javoblarni ko'rsatish</span>
+                                        <span class="settings-mobile-row-hint">Test paytida xatoni darrov ko'rsatish</span>
+                                    </span>
+                                    <button type="button" class="mobile-switch active" id="instant-feedback-switch" data-toggle-local="instant-feedback" role="switch" aria-checked="true" aria-label="Javoblarni ko'rsatish"></button>
+                                </div>
+
+                                <button type="button" class="settings-mobile-row settings-mobile-row-link" id="font-size-setting-btn" aria-label="Shrift o'lchami: O'rta">
+                                    <span class="settings-mobile-icon tone-teal text-icon" aria-hidden="true">A</span>
+                                    <span class="settings-mobile-row-main">
+                                        <span class="settings-mobile-row-label">Shrift o'lchami</span>
+                                    </span>
+                                    <span class="settings-mobile-row-value" id="font-size-setting-value">O'rta</span>
+                                    <span class="settings-mobile-chevron" aria-hidden="true">
+                                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M7 4l6 6-6 6"></path>
+                                        </svg>
+                                    </span>
+                                </button>
+                            </div>
+                        </section>
+
+                        <section class="settings-mobile-section">
+                            <h3 class="settings-mobile-section-title">Bog'lanish va qo'llab-quvvatlash</h3>
+                            <div class="settings-mobile-card">
+                                <button type="button" class="settings-mobile-row settings-mobile-row-link" aria-label="Ilovani baholash">
+                                    <span class="settings-mobile-icon tone-yellow" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 17l-5.3 2.8 1-5.8-4.2-4.1 5.9-.9L12 3.5z"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="settings-mobile-row-main">
+                                        <span class="settings-mobile-row-label">Ilovani baholash</span>
+                                    </span>
+                                    <span class="settings-mobile-chevron" aria-hidden="true">
+                                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M7 4l6 6-6 6"></path>
+                                        </svg>
+                                    </span>
+                                </button>
+
+                                <button type="button" class="settings-mobile-row settings-mobile-row-link" id="telegram-contact-btn" aria-label="Telegram orqali bog'lanish">
+                                    <span class="settings-mobile-icon tone-cyan" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M21 5L3 12l7 2 2 6 9-15z"></path>
+                                            <path d="M10 14l11-9"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="settings-mobile-row-main">
+                                        <span class="settings-mobile-row-label">Telegram orqali bog'lanish</span>
+                                    </span>
+                                    <span class="settings-mobile-chevron" aria-hidden="true">
+                                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M7 4l6 6-6 6"></path>
+                                        </svg>
+                                    </span>
+                                </button>
+
+                                <button type="button" class="settings-mobile-row settings-mobile-row-link" id="terms-policy-btn" aria-label="Foydalanish shartlari">
+                                    <span class="settings-mobile-icon tone-gray" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M8 3h6l5 5v13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path>
+                                            <path d="M14 3v5h5"></path>
+                                            <path d="M10 13h6"></path>
+                                            <path d="M10 17h6"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="settings-mobile-row-main">
+                                        <span class="settings-mobile-row-label">Foydalanish shartlari</span>
+                                    </span>
+                                    <span class="settings-mobile-chevron" aria-hidden="true">
+                                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M7 4l6 6-6 6"></path>
+                                        </svg>
+                                    </span>
+                                </button>
+
+                                <div class="settings-mobile-row" aria-label="Ilova versiyasi: V1.0.1">
+                                    <span class="settings-mobile-icon tone-slate text-icon" aria-hidden="true">i</span>
+                                    <span class="settings-mobile-row-main">
+                                        <span class="settings-mobile-row-label">Ilova versiyasi</span>
+                                    </span>
+                                    <span class="settings-mobile-row-value">V1.0.1</span>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="policy-modal" id="privacy-policy-modal" hidden aria-hidden="true">
+        <button type="button" class="policy-modal-backdrop" data-policy-close aria-label="Yopish"></button>
+        <section class="policy-modal-panel" role="dialog" aria-modal="true" aria-labelledby="privacy-policy-title">
+            <header class="policy-modal-head">
+                <h2 id="privacy-policy-title">MAXFIYLIK SIYOSATI</h2>
+                <button type="button" class="policy-modal-close" data-policy-close aria-label="Yopish">✕</button>
+            </header>
+            <div class="policy-modal-body">
+                <p id="privacy-policy-p1">Ushbu web-ilova foydalanuvchilarning shaxsiy ma’lumotlarini himoya qilishga e’tibor beradi. Ilovadan foydalanishda foydalanuvchilardan maxsus shaxsiy ma’lumotlar talab qilinmaydi.</p>
+                <p id="privacy-policy-p2">Sayt faqat yo‘l harakati qoidalarini o‘rganish va test topshirish uchun mo‘ljallangan. Foydalanuvchilarning shaxsiy ma’lumotlari uchinchi shaxslarga berilmaydi.</p>
+                <p id="privacy-policy-p3">Agar sayt orqali biror texnik ma’lumotlar (masalan, brauzer turi yoki qurilma ma’lumoti) yig‘ilsa, ular faqat sayt ishlashini yaxshilash maqsadida foydalaniladi.</p>
+                <p id="privacy-policy-p4">Ushbu loyiha frontend dasturlashni o‘rganish jarayonida yaratilgan demo web-ilova hisoblanadi.</p>
+            </div>
+        </section>
+    </div>
+
+    <div class="intro-modal" id="intro-modal" hidden aria-hidden="true"></div>
+
+    <script src="fines-data.js"></script>
+    <script>
+        window.FINES_RAW_TEXT_UZ = window.FINES_RAW_TEXT;
+    </script>
+    <script src="fines-data.ru.js"></script>
+    <script src="fines-data.qq.js"></script>
+    <script src="fines-data.tj.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

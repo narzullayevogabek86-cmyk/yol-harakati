@@ -1,0 +1,54 @@
+[build]
+  command = "npm run build:netlify"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[functions."quiz-questions"]
+  included_files = [
+    "questions.uz.json",
+    "questions.qq.json",
+    "questions.ru.json",
+    "questions.tg.json"
+  ]
+
+[functions."quiz-validate"]
+  included_files = [
+    "questions.uz.json",
+    "questions.qq.json",
+    "questions.ru.json",
+    "questions.tg.json"
+  ]
+
+[functions."quiz-submit"]
+  included_files = [
+    "questions.uz.json",
+    "questions.qq.json",
+    "questions.ru.json",
+    "questions.tg.json"
+  ]
+
+[functions.signs]
+  included_files = [
+    "signs-*.json",
+    "*_files/**"
+  ]
+
+[[redirects]]
+  from = "/api/questions"
+  to = "/.netlify/functions/quiz-questions"
+  status = 200
+
+[[redirects]]
+  from = "/api/signs"
+  to = "/.netlify/functions/signs"
+  status = 200
+
+[[redirects]]
+  from = "/api/quiz/validate"
+  to = "/.netlify/functions/quiz-validate"
+  status = 200
+
+[[redirects]]
+  from = "/api/quiz/submit"
+  to = "/.netlify/functions/quiz-submit"
+  status = 200
