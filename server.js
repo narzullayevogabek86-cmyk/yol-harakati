@@ -20,67 +20,16 @@ const {
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const ROOT_DIR = __dirname;
-
+const DIST_DIR = path.join(ROOT_DIR, 'dist');
+const DIST_INDEX_FILE = path.join(DIST_DIR, 'index.html');
 const SIGNS_TG_TRANSLATIONS_FILE = 'signs-tg-translations.json';
-const SAFE_CATEGORY_ASSET_EXTENSIONS = /\.(png|jpe?g|webp|gif|svg|css|js)$/i;
-const ROOT_RESOLVED = path.resolve(ROOT_DIR);
-const INDEX_CSS_TAG = '<link rel="stylesheet" href="style.css">';
-const LEGACY_SCRIPT_BLOCK_PATTERN = /<script src="fines-data\.js"><\/script>\s*<script>\s*window\.FINES_RAW_TEXT_UZ = window\.FINES_RAW_TEXT;\s*<\/script>\s*<script src="fines-data\.ru\.js"><\/script>\s*<script src="fines-data\.qq\.js"><\/script>\s*<script src="fines-data\.tj\.js"><\/script>\s*<script src="script\.js"><\/script>/;
-
-let appHtmlCache = null;
-let assetManifestCache = null;
-
-async function ensureAssetManifest() {
-    if (assetManifestCache) {
-        return assetManifestCache;
-    }
-
-    const raw = await fs.readFile(path.join(ROOT_DIR, 'assets', 'manifest.json'), 'utf8');
-    const manifest = JSON.parse(raw);
-    if (typeof manifest?.css !== 'string' || typeof manifest?.js !== 'string') {
-        throw new Error('Invalid assets manifest');
-    }
-
-    assetManifestCache = manifest;
-    return assetManifestCache;
-}
-
-async function buildAppHtml() {
-    if (appHtmlCache) {
-        return appHtmlCache;
-    }
-
-    const [indexHtml, manifest] = await Promise.all([
-        fs.readFile(path.join(ROOT_DIR, 'index.html'), 'utf8'),
-        ensureAssetManifest()
-    ]);
-
-    if (!indexHtml.includes(INDEX_CSS_TAG)) {
-        throw new Error('Unable to locate style.css link in index.html');
-    }
-    if (!LEGACY_SCRIPT_BLOCK_PATTERN.test(indexHtml)) {
-        throw new Error('Unable to locate legacy script block in index.html');
-    }
-
-    appHtmlCache = indexHtml
-        .replace(INDEX_CSS_TAG, `<link rel="stylesheet" href="${manifest.css}">`)
-        .replace(LEGACY_SCRIPT_BLOCK_PATTERN, `<script src="${manifest.js}" defer></script>`);
-
-    return appHtmlCache;
-}
-
-function isPathInside(parentPath, childPath) {
-    const normalizedParent = `${path.resolve(parentPath)}${path.sep}`;
-    const normalizedChild = path.resolve(childPath);
-    return normalizedChild.startsWith(normalizedParent);
-}
 
 app.use(express.json({ limit: '1mb' }));
 
 app.get(['/', '/index.html'], async (_req, res) => {
     try {
-        const html = await buildAppHtml();
-        res.type('html').send(html);
+        await fs.access(DIST_INDEX_FILE);
+        res.sendFile(DIST_INDEX_FILE);
     } catch (_error) {
         res.status(500).send('App load failed');
     }
@@ -249,32 +198,15 @@ app.post('/api/quiz/submit', async (req, res) => {
     }
 });
 
-app.use('/assets', express.static(path.join(ROOT_DIR, 'assets'), {
-    immutable: true,
-    maxAge: '1y'
-}));
-app.use('/images', express.static(path.join(ROOT_DIR, 'images')));
+app.use(express.static(DIST_DIR));
 
-app.get('/:folderName/:fileName', (req, res, next) => {
-    const { folderName, fileName } = req.params;
-    if (!folderName.endsWith('_files')) {
-        return next();
+app.get('*', async (_req, res, next) => {
+    try {
+        await fs.access(DIST_INDEX_FILE);
+        res.sendFile(DIST_INDEX_FILE);
+    } catch (_error) {
+        next();
     }
-    if (!SAFE_CATEGORY_ASSET_EXTENSIONS.test(fileName)) {
-        return next();
-    }
-
-    const folderPath = path.resolve(ROOT_DIR, folderName);
-    const filePath = path.resolve(folderPath, fileName);
-    if (!isPathInside(ROOT_RESOLVED, folderPath) || !isPathInside(folderPath, filePath)) {
-        return res.status(400).send('Invalid path');
-    }
-
-    return res.sendFile(filePath, (error) => {
-        if (error) {
-            next();
-        }
-    });
 });
 
 if (require.main === module) {

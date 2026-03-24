@@ -28,6 +28,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
+    <template id="legacy-app-shell">
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar">
@@ -259,6 +260,7 @@
                                     </span>
                                     <span class="settings-mobile-row-main">
                                         <span class="settings-mobile-row-label">Bildirishnomalar</span>
+                                        <span class="settings-mobile-row-hint">Har kuni test yechishni eslatib turadi</span>
                                     </span>
                                     <button type="button" class="mobile-switch active" data-toggle-local="notifications" role="switch" aria-checked="true" aria-label="Bildirishnomalar"></button>
                                 </div>
@@ -385,13 +387,9 @@
 
     <div class="intro-modal" id="intro-modal" hidden aria-hidden="true"></div>
 
-    <script src="fines-data.js"></script>
-    <script>
-        window.FINES_RAW_TEXT_UZ = window.FINES_RAW_TEXT;
-    </script>
-    <script src="fines-data.ru.js"></script>
-    <script src="fines-data.qq.js"></script>
-    <script src="fines-data.tj.js"></script>
-    <script src="script.js"></script>
+    </template>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

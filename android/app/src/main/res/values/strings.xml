@@ -4,4 +4,6 @@
     <string name="title_activity_main">YHQ Test</string>
     <string name="package_name">uz.yolharakati.test</string>
     <string name="custom_url_scheme">uz.yolharakati.test</string>
+    <string name="notifications_channel_name">Test eslatmalari</string>
+    <string name="notifications_channel_description">Ilova sizni test yechishga eslatib turadi</string>
 </resources>

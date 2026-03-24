@@ -9,8 +9,6 @@ import androidx.room.RoomDatabase;
 import net.sqlcipher.database.SQLiteDatabase;
 import net.sqlcipher.database.SupportFactory;
 
-import java.nio.charset.StandardCharsets;
-
 @Database(
     entities = { SecureQuestionsEntity.class },
     version = 1,
@@ -31,7 +29,7 @@ public abstract class SecureQuestionsDatabase extends RoomDatabase {
         synchronized (SecureQuestionsDatabase.class) {
             if (instance == null) {
                 SQLiteDatabase.loadLibs(context);
-                final byte[] passphrase = keyManager.getOrCreateDbPassphrase().getBytes(StandardCharsets.UTF_8);
+                final byte[] passphrase = keyManager.getOrCreateDbPassphraseBytes();
                 final SupportFactory factory = new SupportFactory(passphrase);
                 instance = Room.databaseBuilder(
                         context.getApplicationContext(),
@@ -39,7 +37,6 @@ public abstract class SecureQuestionsDatabase extends RoomDatabase {
                         DB_NAME
                     )
                     .openHelperFactory(factory)
-                    .allowMainThreadQueries()
                     .fallbackToDestructiveMigration()
                     .build();
             }

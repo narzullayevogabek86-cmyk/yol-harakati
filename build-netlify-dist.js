@@ -9,38 +9,18 @@ const ANDROID_SECURE_ASSETS_DIR = path.join(ROOT_DIR, 'android', 'app', 'src', '
 const BUILD_TARGET = process.env.YHQ_BUILD_TARGET === 'native' ? 'native' : 'web';
 const SOURCE_FILES_WITH_IMAGE_REFS = ['index.html', 'style.css', 'script.js'];
 const NATIVE_SIGNS_ALLOWED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
+const STATIC_ROOT_FILES = [
+    'style.css',
+    'fines-data.js',
+    'fines-data.ru.js',
+    'fines-data.qq.js',
+    'fines-data.tj.js',
+    'signs-static.json',
+    'signs-tg-translations.json'
+];
 
-async function ensureCleanDist() {
-    await fs.rm(DIST_DIR, { recursive: true, force: true });
+async function ensureDistExists() {
     await fs.mkdir(DIST_DIR, { recursive: true });
-}
-
-async function buildIndexHtml() {
-    const [indexHtml, manifestRaw] = await Promise.all([
-        fs.readFile(path.join(ROOT_DIR, 'index.html'), 'utf8'),
-        fs.readFile(path.join(ROOT_DIR, 'assets', 'manifest.json'), 'utf8')
-    ]);
-
-    const manifest = JSON.parse(manifestRaw);
-    if (typeof manifest?.css !== 'string' || typeof manifest?.js !== 'string') {
-        throw new Error('Invalid assets manifest');
-    }
-
-    const cssTag = '<link rel="stylesheet" href="style.css">';
-    if (!indexHtml.includes(cssTag)) {
-        throw new Error('Unable to locate style.css link in index.html');
-    }
-
-    const scriptBlockPattern = /<script src="fines-data\.js"><\/script>\s*<script>\s*window\.FINES_RAW_TEXT_UZ = window\.FINES_RAW_TEXT;\s*<\/script>\s*<script src="fines-data\.ru\.js"><\/script>\s*<script src="fines-data\.qq\.js"><\/script>\s*<script src="fines-data\.tj\.js"><\/script>\s*<script src="script\.js"><\/script>/;
-    if (!scriptBlockPattern.test(indexHtml)) {
-        throw new Error('Unable to locate legacy script block in index.html');
-    }
-
-    const html = indexHtml
-        .replace(cssTag, `<link rel="stylesheet" href="${manifest.css}">`)
-        .replace(scriptBlockPattern, `<script src="${manifest.js}" defer></script>`);
-
-    await fs.writeFile(path.join(DIST_DIR, 'index.html'), html, 'utf8');
 }
 
 async function collectProtectedQuestionImageFiles() {
@@ -62,7 +42,7 @@ async function collectProtectedQuestionImageFiles() {
         let parsed;
         try {
             parsed = JSON.parse(raw);
-        } catch (error) {
+        } catch (_error) {
             return;
         }
 
@@ -104,10 +84,9 @@ async function collectReferencedUiImageFiles() {
 
         for (const match of raw.matchAll(imageRefPattern)) {
             const imageFileName = match[1] ? path.basename(match[1].trim()) : '';
-            if (!imageFileName) {
-                continue;
+            if (imageFileName) {
+                referencedFiles.add(imageFileName);
             }
-            referencedFiles.add(imageFileName);
         }
     }));
 
@@ -116,6 +95,7 @@ async function collectReferencedUiImageFiles() {
 
 async function copyImagesDir() {
     const targetDir = path.join(DIST_DIR, 'images');
+    await fs.rm(targetDir, { recursive: true, force: true });
     await fs.mkdir(targetDir, { recursive: true });
 
     const hiddenQuestionImages = BUILD_TARGET === 'native'
@@ -155,6 +135,8 @@ async function copySignsAssetDir(dirName) {
     const sourceDir = path.join(ROOT_DIR, dirName);
     const targetDir = path.join(DIST_DIR, dirName);
 
+    await fs.rm(targetDir, { recursive: true, force: true });
+
     if (BUILD_TARGET !== 'native') {
         await fs.cp(sourceDir, targetDir, { recursive: true });
         return;
@@ -190,28 +172,31 @@ async function copyNativeSecureAssets() {
     await fs.cp(NATIVE_SECURE_SOURCE_DIR, ANDROID_SECURE_ASSETS_DIR, { recursive: true });
 }
 
+async function copyRootStaticFiles() {
+    await Promise.all(STATIC_ROOT_FILES.map(async (fileName) => {
+        await fs.copyFile(
+            path.join(ROOT_DIR, fileName),
+            path.join(DIST_DIR, fileName)
+        );
+    }));
+}
+
 async function copyStaticDirs() {
     const entries = await fs.readdir(ROOT_DIR, { withFileTypes: true });
     const signsAssetDirs = entries
         .filter((entry) => entry.isDirectory() && entry.name.endsWith('_files'))
         .map((entry) => entry.name);
 
-    const copyJobs = [
-        fs.cp(path.join(ROOT_DIR, 'assets'), path.join(DIST_DIR, 'assets'), { recursive: true }),
+    await Promise.all([
+        copyRootStaticFiles(),
         copyImagesDir(),
-        fs.copyFile(path.join(ROOT_DIR, 'signs-static.json'), path.join(DIST_DIR, 'signs-static.json')),
-        ...signsAssetDirs.map((dirName) => (
-            copySignsAssetDir(dirName)
-        ))
-    ];
-
-    await Promise.all(copyJobs);
+        ...signsAssetDirs.map((dirName) => copySignsAssetDir(dirName))
+    ]);
 }
 
 async function main() {
-    await ensureCleanDist();
+    await ensureDistExists();
     await Promise.all([
-        buildIndexHtml(),
         copyStaticDirs(),
         copyNativeSecureAssets()
     ]);

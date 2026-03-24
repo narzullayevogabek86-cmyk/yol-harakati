@@ -25,6 +25,15 @@
     @com.getcapacitor.PluginMethod <methods>;
 }
 
+# Preserve WebView JavaScript interface method names for release APK builds.
+-keepclassmembers class uz.yolharakati.test.YhqPermissionsBridge {
+    @android.webkit.JavascriptInterface <methods>;
+    @androidx.annotation.Keep <methods>;
+}
+
+# Retain the bridge class itself so the injected interface stays discoverable.
+-keep class uz.yolharakati.test.YhqPermissionsBridge { *; }
+
 # SQLCipher uses JNI lookups against specific Java class and field names.
 # Renaming these classes or members in release builds causes startup crashes.
 -keep class net.sqlcipher.** { *; }

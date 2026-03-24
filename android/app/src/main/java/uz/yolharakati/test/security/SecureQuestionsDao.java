@@ -7,8 +7,8 @@ import androidx.room.Query;
 
 @Dao
 public interface SecureQuestionsDao {
-    @Query("SELECT * FROM secure_questions WHERE language = :language LIMIT 1")
-    SecureQuestionsEntity findByLanguage(String language);
+    @Query("SELECT updated_at FROM secure_questions WHERE language = :language LIMIT 1")
+    Long getSeedVersion(String language);
 
     @Query("SELECT tickets_json FROM secure_questions WHERE language = :language LIMIT 1")
     String getTicketsJson(String language);

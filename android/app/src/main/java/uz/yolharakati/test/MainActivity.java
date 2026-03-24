@@ -1,8 +1,9 @@
 package uz.yolharakati.test;
 
-import android.os.Bundle;
-import android.os.Build;
+import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.os.Build;
+import android.os.Bundle;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.content.pm.ApplicationInfo;
@@ -18,6 +19,8 @@ import uz.yolharakati.test.plugin.YhqQuizPlugin;
 public class MainActivity extends BridgeActivity {
     private static final int SYSTEM_BAR_COLOR_LIGHT = Color.parseColor("#eef4f8");
     private static final int SYSTEM_BAR_COLOR_DARK = Color.parseColor("#05080d");
+    private static final String UI_PREFS_NAME = "yhq_ui";
+    private static final String SYSTEM_BAR_THEME_KEY = "system_bar_theme_v1";
     private YhqPermissionsBridge permissionsBridge;
 
     @Override
@@ -25,7 +28,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(YhqQuizPlugin.class);
         super.onCreate(savedInstanceState);
 
-        applySystemBarTheme(true);
+        applySystemBarTheme(readPersistedDarkTheme());
 
         permissionsBridge = new YhqPermissionsBridge(this);
         if (bridge != null && bridge.getWebView() != null) {
@@ -41,7 +44,6 @@ public class MainActivity extends BridgeActivity {
 
         if (permissionsBridge != null) {
             permissionsBridge.maybeRequestStartupPermissions();
-            permissionsBridge.emitPermissionSnapshot();
         }
     }
 
@@ -60,7 +62,20 @@ public class MainActivity extends BridgeActivity {
 
     public void syncSystemBarsTheme(String theme) {
         final boolean isDarkTheme = "dark".equalsIgnoreCase(theme);
+        persistSystemBarsTheme(isDarkTheme);
         runOnUiThread(() -> applySystemBarTheme(isDarkTheme));
+    }
+
+    private boolean readPersistedDarkTheme() {
+        final SharedPreferences preferences = getSharedPreferences(UI_PREFS_NAME, MODE_PRIVATE);
+        return preferences.getBoolean(SYSTEM_BAR_THEME_KEY, true);
+    }
+
+    private void persistSystemBarsTheme(boolean darkTheme) {
+        getSharedPreferences(UI_PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putBoolean(SYSTEM_BAR_THEME_KEY, darkTheme)
+            .apply();
     }
 
     private void applySystemBarTheme(boolean darkTheme) {

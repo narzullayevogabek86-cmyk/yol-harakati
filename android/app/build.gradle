@@ -64,6 +64,7 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation "androidx.room:room-runtime:$roomVersion"
+    implementation "androidx.work:work-runtime:$workVersion"
     annotationProcessor "androidx.room:room-compiler:$roomVersion"
     implementation "net.zetetic:android-database-sqlcipher:4.5.4"
     implementation "androidx.sqlite:sqlite-ktx:2.4.0"

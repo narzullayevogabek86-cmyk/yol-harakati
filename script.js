@@ -12,6 +12,7 @@ const DEVTOOLS_SIZE_THRESHOLD = 170;
 const DEVTOOLS_CHECK_INTERVAL_MS = 900;
 const SEARCH_INPUT_DEBOUNCE_MS = 140;
 const SEARCH_RESULTS_LIMIT = 120;
+const FAST_TAP_DEDUP_WINDOW_MS = 450;
 const REGULAR_TICKET_DURATION_SECONDS = 25 * 60;
 const FINAL_TICKET_DURATION_SECONDS = 60;
 const REGULAR_TICKET_PASS_CORRECT = 18;
@@ -25,13 +26,15 @@ const QUIZ_MODE_FIFTY = 'fifty';
 const QUIZ_IMAGE_PRELOAD_DEBUG = false;
 const IMAGE_PRELOAD_CONCURRENCY = 4;
 const QUIZ_NEIGHBOR_TICKET_PREFETCH_COUNT = 1;
-const QUIZ_SWIPE_MIN_DISTANCE = 56;
-const QUIZ_SWIPE_MAX_VERTICAL_DRIFT = 42;
+const QUIZ_SWIPE_MIN_DISTANCE = 42;
+const QUIZ_SWIPE_MAX_VERTICAL_DRIFT = 88;
+const QUIZ_SWIPE_DIRECTION_LOCK_DISTANCE = 12;
+const QUIZ_SWIPE_DIRECTION_RATIO = 1.15;
 const BACK_BUTTON_DEDUP_WINDOW_MS = 250;
 const QUESTIONS_FETCH_CACHE_MODE = 'default';
-const QUESTIONS_API_URL = '/api/questions';
-const QUIZ_VALIDATE_API_URL = '/api/quiz/validate';
-const QUIZ_SUBMIT_API_URL = '/api/quiz/submit';
+const QUESTIONS_API_URL = 'api/questions';
+const QUIZ_VALIDATE_API_URL = 'api/quiz/validate';
+const QUIZ_SUBMIT_API_URL = 'api/quiz/submit';
 const LEGACY_QUESTIONS_JSON_URL = 'questions.json';
 const DEFAULT_QUESTIONS_JSON_URL = 'questions.uz.json';
 const NATIVE_QUIZ_PLUGIN_NAME = 'YhqQuiz';
@@ -39,7 +42,8 @@ const NATIVE_PERMISSIONS_BRIDGE_NAME = 'YHQPermissionsBridge';
 const NATIVE_PERMISSIONS_EVENT_NAME = 'yhq:permissions-changed';
 const NATIVE_PLUGIN_READY_RETRY_MS = 160;
 const NATIVE_PLUGIN_READY_MAX_ATTEMPTS = 12;
-const SIGNS_STATIC_DATA_URL = '/signs-static.json';
+const NATIVE_QUIZ_FATAL_ERROR_CODES = ['QUIZ_ASSET_NOT_FOUND', 'QUIZ_DECRYPT_FAILED', 'QUIZ_DATA_INVALID', 'QUIZ_BOOTSTRAP_FAILED'];
+const SIGNS_STATIC_DATA_URL = 'signs-static.json';
 const ORIGINAL_MARKER_TOKEN_PATTERN = /«[^»]{1,24}»|(?<![\p{L}\p{N}_])[A-ZА-ЯЁЎҚҒҲ]{1,6}\d*(?![\p{L}\p{N}_])/u;
 const ORIGINAL_MARKER_TOKEN_REGEX = /«[^»]{1,24}»|(?<![\p{L}\p{N}_])[A-ZА-ЯЁЎҚҒҲ]{1,6}\d*(?![\p{L}\p{N}_])/gu;
 const QUESTIONS_JSON_BY_LANG = {
@@ -89,6 +93,7 @@ const UI_TEXT = {
         common_back: 'Orqaga',
         common_share: 'Ulashish',
         common_reload: 'Qayta yuklash',
+        common_loading: 'Yuklanmoqda...',
         common_home_page: 'Asosiy sahifa',
         common_clear: 'Tozalash',
         common_search: 'Qidirish',
@@ -190,6 +195,9 @@ const UI_TEXT = {
         settings_language_aria: 'Til: {value}',
         settings_dark_mode: 'Tungi rejim',
         settings_notifications: 'Bildirishnomalar',
+        settings_notifications_hint: "Har kuni test yechishni eslatib turadi",
+        settings_notifications_hint_permission: "Ruxsat bering, shunda test eslatmalari keladi",
+        settings_notifications_hint_off: "Test eslatmalari o'chirilgan",
         settings_instant_feedback: "Javoblarni ko'rsatish",
         settings_instant_feedback_hint: "Test paytida xatoni darrov ko'rsatish",
         settings_font_size: "Shrift o'lchami",
@@ -253,6 +261,7 @@ const UI_TEXT = {
         bookmarks_coming_soon: "Bu funksiya tez orada qo'shiladi",
         questions_load_error_title: 'Savollar yuklanmadi',
         questions_load_error_text: "questions.json faylini yuklab bo'lmadi. Sahifani yangilang.",
+        questions_load_error_reinstall: "Ma'lumotlar yuklanmadi. Ilovani qayta o'rnating.",
         questions_not_ready: 'Savollar hali yuklanmadi. Iltimos, biroz kuting.',
         share_text: "Yo'l harakati qoidalari test dasturi",
         share_link_copied: 'Havola nusxalandi',
@@ -283,6 +292,7 @@ const UI_TEXT = {
         common_back: 'Artqa',
         common_share: 'Bólistiriw',
         common_reload: 'Qayta júklew',
+        common_loading: 'Júklenip atır...',
         common_home_page: 'Bas bet',
         common_clear: 'Tazalaw',
         common_search: 'Izlew',
@@ -383,6 +393,9 @@ const UI_TEXT = {
         settings_language_aria: 'Til: {value}',
         settings_dark_mode: 'Túngi rejim',
         settings_notifications: 'Xabarnamalar',
+        settings_notifications_hint: 'Hár kúni test tapsırıwın esletip turadı',
+        settings_notifications_hint_permission: 'Ruxsat beriń, sonda test esletpeleri keledi',
+        settings_notifications_hint_off: 'Test esletpeleri óshirildi',
         settings_instant_feedback: "Juwaplardı kórsetiw",
         settings_instant_feedback_hint: "Test waqıtında qátelikti darrow kórsetiw",
         settings_font_size: "Shrift ólshemi",
@@ -422,6 +435,7 @@ const UI_TEXT = {
         bookmarks_coming_soon: "Bul funkciya jaqında qosıladı",
         questions_load_error_title: 'Sawallar júklenbedi',
         questions_load_error_text: 'questions.json faylın júkley almadıq. Betti jańalań.',
+        questions_load_error_reinstall: "Maǵlıwmatlar júklenbedi. Ilovanı qaytadan ornatıń.",
         questions_not_ready: 'Sawallar áli júklenbedi. Az ǵana kútiń.',
         share_text: 'Jol háreketi qaǵıydaları test dástúri',
         share_link_copied: 'Silteme nusqalandi',
@@ -452,6 +466,7 @@ const UI_TEXT = {
         common_back: 'Назад',
         common_share: 'Поделиться',
         common_reload: 'Перезагрузить',
+        common_loading: 'Загрузка...',
         common_home_page: 'Главная',
         common_clear: 'Очистить',
         common_search: 'Поиск',
@@ -552,6 +567,9 @@ const UI_TEXT = {
         settings_language_aria: 'Язык: {value}',
         settings_dark_mode: 'Ночной режим',
         settings_notifications: 'Уведомления',
+        settings_notifications_hint: 'Каждый день напоминает пройти тест',
+        settings_notifications_hint_permission: 'Разрешите уведомления, и напоминания о тестах будут приходить',
+        settings_notifications_hint_off: 'Напоминания о тестах выключены',
         settings_instant_feedback: 'Показывать ответы',
         settings_instant_feedback_hint: 'Сразу показывать ошибку во время теста',
         settings_font_size: 'Размер шрифта',
@@ -591,6 +609,7 @@ const UI_TEXT = {
         bookmarks_coming_soon: 'Эта функция скоро появится',
         questions_load_error_title: 'Вопросы не загружены',
         questions_load_error_text: 'Не удалось загрузить файл questions.json. Обновите страницу.',
+        questions_load_error_reinstall: 'Данные не загрузились. Переустановите приложение.',
         questions_not_ready: 'Вопросы еще не загружены. Пожалуйста, подождите.',
         share_text: 'Тест по правилам дорожного движения',
         share_link_copied: 'Ссылка скопирована',
@@ -621,6 +640,7 @@ const UI_TEXT = {
         common_back: 'Бозгашт',
         common_share: 'Мубодила',
         common_reload: 'Аз нав бор кардан',
+        common_loading: 'Дар ҳоли боркунӣ...',
         common_home_page: 'Асосӣ',
         common_clear: 'Пок кардан',
         common_search: 'Ҷустуҷӯ',
@@ -721,6 +741,9 @@ const UI_TEXT = {
         settings_language_aria: 'Забон: {value}',
         settings_dark_mode: 'Ҳолати шабона',
         settings_notifications: 'Огоҳиномаҳо',
+        settings_notifications_hint: 'Ҳар рӯз барои супоридани тест ёдрас мекунад',
+        settings_notifications_hint_permission: 'Ба огоҳиномаҳо иҷозат диҳед, то ёдраскуниҳои тест бирасанд',
+        settings_notifications_hint_off: 'Ёдраскуниҳои тест хомӯшанд',
         settings_instant_feedback: 'Нишон додани ҷавобҳо',
         settings_instant_feedback_hint: 'Дар вақти тест хатогиро фавран нишон диҳад',
         settings_font_size: 'Андозаи шрифт',
@@ -760,6 +783,7 @@ const UI_TEXT = {
         bookmarks_coming_soon: 'Ин функсия ба зудӣ илова мешавад',
         questions_load_error_title: 'Саволҳо бор нашуданд',
         questions_load_error_text: 'Файли questions.json бор карда нашуд. Саҳифаро навсозӣ кунед.',
+        questions_load_error_reinstall: 'Маълумот бор нашуд. Барномаро аз нав насб кунед.',
         questions_not_ready: 'Саволҳо ҳоло бор нашудаанд. Лутфан каме интизор шавед.',
         share_text: 'Барномаи тестии қоидаҳои ҳаракати роҳ',
         share_link_copied: 'Пайванд нусхабардорӣ шуд',
@@ -893,7 +917,8 @@ function buildUzCyrillicUiText() {
         policy_text_2: 'Созламалар, тест натижалари ва айрим маҳаллий маълумотлар фақат илова функцияларини таъминлаш учун қурилмада сақланиши мумкин.',
         policy_text_3: 'Фойдаланувчига оид маълумотлар учинчи шахсларга берилмайди. Зарурат бўлса, фақат илованинг ишлашини яхшилашга хизмат қилувчи техник маълумотлардан фойдаланилиши мумкин.',
         policy_text_4: 'Мазкур сиёсат келгусида янгиланиши мумкин.',
-        questions_load_error_text: "questions.json файлини юклаб бўлмади. Саҳифани янгиланг."
+        questions_load_error_text: "questions.json файлини юклаб бўлмади. Саҳифани янгиланг.",
+        questions_load_error_reinstall: "Маълумотлар юкланмади. Иловани қайта ўрнатинг."
     };
 }
 
@@ -1082,7 +1107,8 @@ let appLifecycleListenersBound = false;
 let nativePermissionListenerBound = false;
 let nativePermissionState = null;
 let nativeQuizPlugin = null;
-
+let nativeQuizLoadErrorCode = null;
+let nativeQuizLoadErrorAlertShown = false;
 function getQuestionsJsonUrlForLanguage(languageCode = getCurrentLanguage()) {
     const lang = normalizeAppLanguage(languageCode);
     return QUESTIONS_JSON_BY_LANG[lang] || DEFAULT_QUESTIONS_JSON_URL;
@@ -1333,12 +1359,60 @@ function hasNativeNotificationPermission() {
     return Boolean(nativePermissionState?.notificationsGranted);
 }
 
+function getNotificationsSettingValue() {
+    if (
+        isLikelyNativeRuntime()
+        && nativePermissionState
+        && typeof nativePermissionState.remindersEnabled === 'boolean'
+    ) {
+        return nativePermissionState.remindersEnabled;
+    }
+
+    return Boolean(getAppSetting('notificationsEnabled'));
+}
+
+function getNotificationsHintTranslationKey() {
+    if (!getNotificationsSettingValue()) {
+        return 'settings_notifications_hint_off';
+    }
+
+    if (isLikelyNativeRuntime() && !hasNativeNotificationPermission()) {
+        return 'settings_notifications_hint_permission';
+    }
+
+    return 'settings_notifications_hint';
+}
+
+function updateNotificationsHint() {
+    const notificationsSwitch = document.querySelector('.mobile-switch[data-toggle-local="notifications"]');
+    const notificationsRow = notificationsSwitch?.closest('.settings-mobile-row');
+    const hint = notificationsRow?.querySelector('.settings-mobile-row-hint');
+    if (!hint) return;
+
+    hint.textContent = t(getNotificationsHintTranslationKey());
+}
+
 function updateNotificationsSwitch() {
     const notificationsSwitch = document.querySelector('.mobile-switch[data-toggle-local="notifications"]');
     if (!notificationsSwitch) return;
 
-    const notificationsEnabled = Boolean(getAppSetting('notificationsEnabled'));
-    setMobileSwitchState(notificationsSwitch, notificationsEnabled && hasNativeNotificationPermission());
+    setMobileSwitchState(notificationsSwitch, getNotificationsSettingValue());
+    updateNotificationsHint();
+}
+
+function setNativeNotificationsEnabled(enabled) {
+    const bridge = getNativePermissionsBridge();
+    if (!bridge || typeof bridge.setNotificationsEnabled !== 'function') {
+        return false;
+    }
+
+    try {
+        bridge.setNotificationsEnabled(enabled ? 'true' : 'false');
+        return true;
+    } catch (error) {
+        console.warn('Native notifications toggle error:', error);
+        return false;
+    }
 }
 
 function syncNativePermissionState(snapshot) {
@@ -1347,6 +1421,16 @@ function syncNativePermissionState(snapshot) {
     }
 
     nativePermissionState = snapshot;
+
+    if (typeof snapshot.remindersEnabled === 'boolean') {
+        if (!appSettingsState) {
+            appSettingsState = loadAppSettings();
+        }
+
+        appSettingsState.notificationsEnabled = snapshot.remindersEnabled;
+        saveAppSettings();
+    }
+
     updateNotificationsSwitch();
 }
 
@@ -1387,6 +1471,46 @@ async function fetchWebFallbackQuestionsDataset(_languageCode, apiError) {
 
 /* WEB_SECURE_FALLBACK_START */
 /* WEB_SECURE_FALLBACK_END */
+
+function getNativeQuizErrorCode(error) {
+    if (!error || typeof error !== 'object') {
+        return '';
+    }
+
+    if (typeof error.code === 'string' && error.code.trim()) {
+        return error.code.trim();
+    }
+
+    if (typeof error.data?.code === 'string' && error.data.code.trim()) {
+        return error.data.code.trim();
+    }
+
+    return '';
+}
+
+function isFatalNativeQuizLoadCode(code) {
+    return NATIVE_QUIZ_FATAL_ERROR_CODES.includes(code);
+}
+
+function rememberNativeQuizLoadError(error) {
+    const code = getNativeQuizErrorCode(error);
+    nativeQuizLoadErrorCode = code || null;
+
+    if (!isLikelyNativeRuntime() || !isFatalNativeQuizLoadCode(code) || nativeQuizLoadErrorAlertShown) {
+        return;
+    }
+
+    nativeQuizLoadErrorAlertShown = true;
+    alert(t('questions_load_error_reinstall'));
+}
+
+function getQuestionsLoadErrorMessage() {
+    if (isLikelyNativeRuntime() && isFatalNativeQuizLoadCode(nativeQuizLoadErrorCode)) {
+        return t('questions_load_error_reinstall');
+    }
+
+    return t('questions_load_error_text');
+}
 
 function fetchNativeQuestionsDataset(languageCode) {
     const lang = normalizeAppLanguage(languageCode);
@@ -1474,6 +1598,8 @@ function applyQuestionsDataset(data, languageCode) {
     QUESTIONS = data;
     currentQuestionsLanguage = normalizeAppLanguage(languageCode);
     questionsDataByLang[currentQuestionsLanguage] = data;
+    nativeQuizLoadErrorCode = null;
+    nativeQuizLoadErrorAlertShown = false;
     if (currentQuestionsLanguage === 'uz') {
         baseUzQuestionsData = data;
     }
@@ -1560,6 +1686,15 @@ async function validateAnswerSelection(languageCode, quizMode, ticketNumber, que
 
         return payload;
     } catch (apiError) {
+        // MAhalliy (offline) tekshirish fallback'i
+        const ticket = getQuizBankByMode(quizMode)[ticketNumber - 1];
+        const question = ticket?.questions?.[questionIndex];
+        if (question && typeof question.correct === 'number') {
+            return {
+                ok: true,
+                isCorrect: question.correct === answerIndex
+            };
+        }
         throw apiError;
     }
 }
@@ -1608,6 +1743,27 @@ async function submitQuizAttempt(languageCode, quizMode, ticketNumber, submitted
 
         return payload;
     } catch (apiError) {
+        // MAhalliy (offline) tekshirish fallback'i
+        const ticket = getQuizBankByMode(quizMode)[ticketNumber - 1];
+        if (ticket && Array.isArray(ticket.questions)) {
+            let correctCount = 0;
+            const questionResults = ticket.questions.map((q, index) => {
+                const userAnswer = submittedAnswers[index];
+                const isWrong = userAnswer !== q.correct;
+                if (!isWrong && userAnswer !== null) correctCount++;
+                return {
+                    ticket: ticketNumber,
+                    question: index + 1,
+                    isWrong: isWrong
+                };
+            });
+            return {
+                ok: true,
+                correct: correctCount,
+                totalQuestions: ticket.questions.length,
+                questionResults
+            };
+        }
         throw apiError;
     }
 }
@@ -1674,6 +1830,7 @@ async function loadQuestionsData(languageCode = getCurrentLanguage()) {
             return true;
         } catch (error) {
             questionsDataReady = false;
+            rememberNativeQuizLoadError(error);
             console.error('Questions load error:', error);
             return false;
         } finally {
@@ -1691,19 +1848,25 @@ function renderQuestionsLoadError() {
     content.innerHTML = `
         <div class="coming-soon">
             <h2>${t('questions_load_error_title')}</h2>
-            <p>${t('questions_load_error_text')}</p>
+            <p>${getQuestionsLoadErrorMessage()}</p>
             <button class="btn btn-primary" onclick="window.location.reload()" style="margin-top: 24px;">${t('common_reload')}</button>
         </div>
     `;
 }
 
 function ensureQuestionsLoaded() {
-    if (questionsDataReady) return true;
+    if (questionsDataReady) {
+        return true;
+    }
+
     alert(t('questions_not_ready'));
     return false;
 }
 
-document.addEventListener('DOMContentLoaded', async function () {
+let legacyAppInitPromise = null;
+
+async function bootstrapLegacyApp() {
+    exposeLegacyGlobalActions();
     initTheme();
     initAppSettings();
     initSettingsThemeOptions();
@@ -1719,7 +1882,6 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     const questionsLoaded = await loadQuestionsData(getCurrentLanguage());
     if (!questionsLoaded) {
-        applyLanguageToInterface();
         renderQuestionsLoadError();
         return;
     }
@@ -1732,7 +1894,14 @@ document.addEventListener('DOMContentLoaded', async function () {
     loadSavedData();
     maybeOpenInitialIntro();
     // initDevtoolsProtection();
-});
+}
+
+export function initLegacyApp() {
+    if (!legacyAppInitPromise) {
+        legacyAppInitPromise = bootstrapLegacyApp();
+    }
+    return legacyAppInitPromise;
+}
 
 function getSavedTheme() {
     try {
@@ -1771,11 +1940,51 @@ function syncNativeTheme(theme) {
     }
 }
 
+let themeTransitionResetId = null;
+let nativeThemeSyncTimeoutId = null;
+
+function startThemeSwitchFrame() {
+    const root = document.documentElement;
+    if (!root) return;
+
+    root.classList.add('theme-switching');
+
+    if (themeTransitionResetId !== null) {
+        window.clearTimeout(themeTransitionResetId);
+    }
+
+    themeTransitionResetId = window.setTimeout(() => {
+        root.classList.remove('theme-switching');
+        themeTransitionResetId = null;
+    }, 140);
+}
+
+function scheduleNativeThemeSync(theme) {
+    if (nativeThemeSyncTimeoutId !== null) {
+        window.clearTimeout(nativeThemeSyncTimeoutId);
+    }
+
+    nativeThemeSyncTimeoutId = window.setTimeout(() => {
+        nativeThemeSyncTimeoutId = null;
+        syncNativeTheme(theme);
+    }, 0);
+}
+
 function setTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    updateThemeColorMeta(theme);
-    syncNativeTheme(theme);
-    updateThemeToggle(theme);
+    const root = document.documentElement;
+    if (!root) return;
+
+    const nextTheme = theme === 'dark' ? 'dark' : 'light';
+    const currentTheme = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+
+    if (currentTheme !== nextTheme) {
+        startThemeSwitchFrame();
+    }
+
+    root.setAttribute('data-theme', nextTheme);
+    updateThemeColorMeta(nextTheme);
+    updateThemeToggle(nextTheme);
+    scheduleNativeThemeSync(nextTheme);
 }
 
 function saveThemePreference(theme) {
@@ -1812,6 +2021,50 @@ function updateThemeToggle(theme) {
     updateSettingsThemeSelection(theme);
 }
 
+function bindFastPress(element, handler) {
+    if (!element || typeof handler !== 'function') return;
+
+    let lastFastActivationAt = 0;
+    const activate = (event) => {
+        const now = Date.now();
+        if (now - lastFastActivationAt < FAST_TAP_DEDUP_WINDOW_MS) {
+            if (event?.preventDefault) {
+                event.preventDefault();
+            }
+            return;
+        }
+
+        lastFastActivationAt = now;
+        handler(event);
+    };
+
+    element.addEventListener('touchend', (event) => {
+        event.preventDefault();
+        activate(event);
+    }, { passive: false });
+
+    element.addEventListener('pointerup', (event) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) {
+            return;
+        }
+
+        if (event.pointerType !== 'mouse') {
+            event.preventDefault();
+        }
+        activate(event);
+    });
+
+    element.addEventListener('click', (event) => {
+        if (Date.now() - lastFastActivationAt < FAST_TAP_DEDUP_WINDOW_MS) {
+            event.preventDefault();
+            return;
+        }
+
+        lastFastActivationAt = Date.now();
+        handler(event);
+    });
+}
+
 function initTheme() {
     const initialTheme = getSavedTheme() || getSystemTheme();
     setTheme(initialTheme);
@@ -1819,7 +2072,7 @@ function initTheme() {
     const toggleButton = document.getElementById('theme-toggle');
     if (!toggleButton) return;
 
-    toggleButton.addEventListener('click', function () {
+    bindFastPress(toggleButton, function () {
         const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
         const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
         applyThemePreference(nextTheme);
@@ -1926,13 +2179,16 @@ function updateQuizFontSizeSettingUI() {
     }
 }
 
-function applyAppSettingsToUI() {
+function applyAppSettingsToUI(options = {}) {
+    const shouldApplyLanguage = options.applyLanguage !== false;
     applyQuizFontSizeSetting(getAppSetting('quizFontSize'));
     updateNotificationsSwitch();
     updateInstantFeedbackSwitch();
     updateQuizFontSizeSettingUI();
     updateLanguageSettingUI();
-    applyLanguageToInterface();
+    if (shouldApplyLanguage) {
+        applyLanguageToInterface();
+    }
 }
 
 function initAppSettings() {
@@ -1958,7 +2214,7 @@ function setAppSetting(key, value) {
     }
 
     saveAppSettings();
-    applyAppSettingsToUI();
+    applyAppSettingsToUI({ applyLanguage: key === 'language' });
 }
 
 function cycleQuizFontSizeSetting() {
@@ -2003,7 +2259,7 @@ function initSettingsThemeOptions() {
     if (themeButtons.length === 0) return;
 
     themeButtons.forEach((button) => {
-        button.addEventListener('click', () => {
+        bindFastPress(button, () => {
             const theme = button.dataset.themeOption;
             if (theme !== 'light' && theme !== 'dark') return;
             applyThemePreference(theme);
@@ -2024,7 +2280,7 @@ function initMobileSettingsSwitches() {
 
     const mobileThemeSwitch = document.getElementById('mobile-theme-switch');
     if (mobileThemeSwitch) {
-        mobileThemeSwitch.addEventListener('click', () => {
+        bindFastPress(mobileThemeSwitch, () => {
             const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
             const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
             applyThemePreference(nextTheme);
@@ -2037,13 +2293,21 @@ function initMobileSettingsSwitches() {
     const notificationsSwitch = document.querySelector('.mobile-switch[data-toggle-local="notifications"]');
     if (notificationsSwitch) {
         notificationsSwitch.addEventListener('click', () => {
-            if (isLikelyNativeRuntime() && !hasNativeNotificationPermission()) {
-                requestNativeStartupPermissions();
+            const current = getNotificationsSettingValue();
+            const next = !current;
+
+            setAppSetting('notificationsEnabled', next);
+
+            if (isLikelyNativeRuntime()) {
+                const nativeHandled = setNativeNotificationsEnabled(next);
+                if (!nativeHandled && next && !hasNativeNotificationPermission()) {
+                    requestNativeStartupPermissions();
+                }
+                updateNotificationsSwitch();
                 return;
             }
 
-            const current = Boolean(getAppSetting('notificationsEnabled'));
-            setAppSetting('notificationsEnabled', !current);
+            updateNotificationsSwitch();
         });
 
         updateNotificationsSwitch();
@@ -2452,7 +2716,9 @@ function applyStaticInterfaceTranslations() {
     const notificationsRow = notificationsSwitch?.closest('.settings-mobile-row');
     if (notificationsRow) {
         const label = notificationsRow.querySelector('.settings-mobile-row-label');
+        const hint = notificationsRow.querySelector('.settings-mobile-row-hint');
         if (label) label.textContent = t('settings_notifications');
+        if (hint) hint.textContent = t(getNotificationsHintTranslationKey());
     }
     if (notificationsSwitch) notificationsSwitch.setAttribute('aria-label', t('settings_notifications'));
 
@@ -2680,6 +2946,10 @@ function setActivePage(pageName) {
 
     if (pageName === 'signs') {
         renderSignsPage();
+    }
+
+    if (pageName === 'fines') {
+        renderFinesPage();
     }
 
     updateMobileHeaderBackButton();
@@ -3809,6 +4079,8 @@ function renderFinesPage() {
 }
 
 function initFinesPage() {
+    const finesPage = document.getElementById('fines-page');
+    if (!finesPage) return;
     renderFinesPage();
 }
 
@@ -4017,7 +4289,6 @@ function clearBookmarks() {
 
 function openSavedQuestion(ticketNumber, questionNumber) {
     if (!ensureQuestionsLoaded()) return;
-
     const safeTicketNumber = Number(ticketNumber);
     const safeQuestionNumber = Number(questionNumber);
     if (!Number.isInteger(safeTicketNumber) || safeTicketNumber < 1) {
@@ -4437,15 +4708,14 @@ function getHomePageMarkup() {
 
 // Open new 20 tickets
 function openNewTickets() {
-    if (!ensureQuestionsLoaded()) return;
     clearMobileCarouselTimer();
-    const end = QUESTIONS.length;
+    const end = getQuizBankByMode(QUIZ_MODE_STANDARD).length;
+    if (end < 1) return;
     const start = Math.max(1, end - 19);
     showTicketsList(start, end, t('tickets_new20_title'), { titleKey: 'tickets_new20_title' });
 }
 
 function openFiftyTickets() {
-    if (!ensureQuestionsLoaded()) return;
     clearMobileCarouselTimer();
     const end = getQuizBankByMode(QUIZ_MODE_FIFTY).length;
     if (end < 1) {
@@ -4481,9 +4751,8 @@ function openTenTickets() {
 
 // Open all tickets
 function openAllTickets() {
-    if (!ensureQuestionsLoaded()) return;
     clearMobileCarouselTimer();
-    showTicketsList(1, QUESTIONS.length, t('tickets_all_title'), { titleKey: 'tickets_all_title' });
+    showTicketsList(1, getQuizBankByMode(QUIZ_MODE_STANDARD).length, t('tickets_all_title'), { titleKey: 'tickets_all_title' });
 }
 
 // Show tickets list
@@ -4491,9 +4760,9 @@ function showTicketsList(start, end, title, options = {}) {
     clearMobileCarouselTimer();
     const ticketMode = options.ticketMode === QUIZ_MODE_FIFTY ? QUIZ_MODE_FIFTY : QUIZ_MODE_STANDARD;
     const titleKey = options.titleKey || null;
-    const ticketBank = getQuizBankByMode(ticketMode);
+    const totalTickets = getQuizBankByMode(ticketMode).length;
     const safeStart = Math.max(1, start);
-    const safeEnd = Math.min(end, ticketBank.length);
+    const safeEnd = Math.min(end, totalTickets);
     const startHandlerName = ticketMode === QUIZ_MODE_FIFTY ? 'startFiftyQuiz' : 'startQuiz';
 
     const resolvedTitle = titleKey ? t(titleKey) : title;
@@ -4630,6 +4899,23 @@ function backToMain() {
     initMobileCarousel();
     updateMobileHeaderBackButton();
     updateHeaderDesktopActions();
+}
+
+function renderQuizLoadingState() {
+    const content = document.getElementById('main-page');
+    if (!content) return;
+
+    content.innerHTML = `
+        <div class="quiz-container">
+            <div class="question-card">
+                <div class="question-content">
+                    <div class="question-text-container">
+                        <div class="question-text">${t('common_loading')}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 // Start quiz for a ticket
@@ -5005,8 +5291,15 @@ function startQuiz(ticketNumber, options = {}) {
     stopTimer(); // Clear any existing timer
     quizDeadlineTimestamp = null;
 
+    setActivePage('main');
+
     // Add quiz-active class to hide sidebar
     document.body.classList.add('quiz-active');
+    const content = document.getElementById('main-page');
+    if (content) {
+        content.innerHTML = '';
+    }
+    renderQuizLoadingState();
     updateMobileHeaderBackButton();
 
     // Text is already in memory; preload all images in this ticket so navigation stays smooth.
@@ -5021,7 +5314,6 @@ function startQuiz(ticketNumber, options = {}) {
 }
 
 function startQuizFromQuestion(ticketNumber, questionIndex) {
-    setActivePage('main');
     startQuiz(ticketNumber, { exitState: { type: 'search' }, quizMode: QUIZ_MODE_STANDARD });
 
     if (!document.body.classList.contains('quiz-active')) {
@@ -5051,23 +5343,80 @@ function initQuizSwipeNavigation() {
 
     let startX = 0;
     let startY = 0;
+    let lastX = 0;
+    let lastY = 0;
     let isTracking = false;
+    let isHorizontalSwipe = false;
 
     quizContainer.addEventListener('touchstart', (event) => {
+        if (event.touches && event.touches.length > 1) {
+            isTracking = false;
+            isHorizontalSwipe = false;
+            return;
+        }
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (target && target.closest('.btn-next-floating, .btn-finish, .btn-back, .btn-bookmark, .question-num')) {
+            isTracking = false;
+            isHorizontalSwipe = false;
+            return;
+        }
+
         const touch = event.changedTouches && event.changedTouches[0];
         if (!touch) {
             isTracking = false;
+            isHorizontalSwipe = false;
             return;
         }
 
         startX = touch.clientX;
         startY = touch.clientY;
+        lastX = touch.clientX;
+        lastY = touch.clientY;
         isTracking = true;
+        isHorizontalSwipe = false;
     }, { passive: true });
 
     quizContainer.addEventListener('touchcancel', () => {
         isTracking = false;
+        isHorizontalSwipe = false;
     }, { passive: true });
+
+    quizContainer.addEventListener('touchmove', (event) => {
+        if (!isTracking) {
+            return;
+        }
+
+        const touch = event.changedTouches && event.changedTouches[0];
+        if (!touch) {
+            return;
+        }
+
+        lastX = touch.clientX;
+        lastY = touch.clientY;
+
+        const deltaX = touch.clientX - startX;
+        const deltaY = touch.clientY - startY;
+        const absX = Math.abs(deltaX);
+        const absY = Math.abs(deltaY);
+
+        if (!isHorizontalSwipe) {
+            if (absX < QUIZ_SWIPE_DIRECTION_LOCK_DISTANCE && absY < QUIZ_SWIPE_DIRECTION_LOCK_DISTANCE) {
+                return;
+            }
+
+            if (absX > absY * QUIZ_SWIPE_DIRECTION_RATIO) {
+                isHorizontalSwipe = true;
+            } else if (absY > absX) {
+                isTracking = false;
+                return;
+            }
+        }
+
+        if (isHorizontalSwipe) {
+            event.preventDefault();
+        }
+    }, { passive: false });
 
     quizContainer.addEventListener('touchend', (event) => {
         if (!isTracking) {
@@ -5076,19 +5425,23 @@ function initQuizSwipeNavigation() {
         isTracking = false;
 
         const touch = event.changedTouches && event.changedTouches[0];
-        if (!touch) {
-            return;
-        }
-
-        const deltaX = touch.clientX - startX;
-        const deltaY = touch.clientY - startY;
+        const endX = touch ? touch.clientX : lastX;
+        const endY = touch ? touch.clientY : lastY;
+        const deltaX = endX - startX;
+        const deltaY = endY - startY;
         const absX = Math.abs(deltaX);
         const absY = Math.abs(deltaY);
 
+        if (!isHorizontalSwipe) {
+            return;
+        }
         if (absX < QUIZ_SWIPE_MIN_DISTANCE) {
             return;
         }
-        if (absY > QUIZ_SWIPE_MAX_VERTICAL_DRIFT || absX <= absY) {
+        if (absY > QUIZ_SWIPE_MAX_VERTICAL_DRIFT && absX <= absY * QUIZ_SWIPE_DIRECTION_RATIO) {
+            return;
+        }
+        if (absX <= absY * QUIZ_SWIPE_DIRECTION_RATIO) {
             return;
         }
 
@@ -5097,6 +5450,8 @@ function initQuizSwipeNavigation() {
         } else {
             previousQuestion();
         }
+
+        isHorizontalSwipe = false;
     }, { passive: true });
 }
 
@@ -5766,4 +6121,34 @@ function loadSavedData() {
     getStoredWrongAnswers();
     getStoredBookmarks();
     readJsonStorage(TICKET_PROGRESS_STORAGE_KEY, {});
+}
+
+function exposeLegacyGlobalActions() {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    Object.assign(window, {
+        setActivePage,
+        openSignsCategory,
+        openNewTickets,
+        openFiftyTickets,
+        openAllTickets,
+        openWrongAnswers,
+        openBookmarks,
+        openSavedQuestion,
+        startQuiz,
+        startFiftyQuiz,
+        startQuizFromQuestion,
+        backToMain,
+        clearWrongAnswers,
+        clearBookmarks,
+        removeBookmark,
+        toggleBookmark,
+        jumpToQuestion,
+        selectAnswer,
+        nextQuestion,
+        exitQuiz,
+        finishQuiz
+    });
 }

@@ -478,6 +478,7 @@ html[data-theme='dark'] .main-content {
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
+    touch-action: manipulation;
     transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
 }
 
@@ -1922,6 +1923,7 @@ html[data-theme='dark'] .signs-state-error {
     font-weight: 700;
     padding: 12px 10px;
     cursor: pointer;
+    touch-action: manipulation;
     transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast), color var(--transition-fast);
 }
 
@@ -2133,6 +2135,7 @@ html[data-theme='dark'] .signs-state-error {
     border-radius: 999px;
     background: #d6dde8;
     cursor: pointer;
+    touch-action: manipulation;
     transition: background 0.2s ease;
     flex-shrink: 0;
 }
@@ -2744,6 +2747,7 @@ html[data-theme='dark'] .intro-progress-segment {
 .quiz-container {
     max-width: 1400px;
     margin: 0 auto;
+    touch-action: pan-y pinch-zoom;
 }
 
 body.quiz-active .app-container {
@@ -5529,6 +5533,13 @@ html[data-quiz-font-size='large'] body.quiz-active .quiz-container .quiz-ticket-
         transition: none !important;
         scroll-behavior: auto !important;
     }
+}
+
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+    transition: none !important;
+    animation: none !important;
 }
 
 @media (min-width: 761px) and (pointer: fine), (min-width: 761px) and (min-height: 561px) {

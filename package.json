@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "build:protected": "node build-protected-content.js && node build-signs-static.js",
-    "build": "npm run build:protected && node build-assets.js",
-    "build:native": "npm run build:protected && YHQ_BUILD_TARGET=native node build-assets.js",
-    "build:dist": "npm run build && node build-netlify-dist.js",
-    "build:dist:native": "npm run build:native && YHQ_BUILD_TARGET=native node build-netlify-dist.js",
+    "dev": "vite",
+    "build": "npm run build:protected && vite build && node build-netlify-dist.js",
+    "build:native": "npm run build:protected && YHQ_BUILD_TARGET=native vite build && YHQ_BUILD_TARGET=native node build-netlify-dist.js",
+    "build:dist": "npm run build",
+    "build:dist:native": "npm run build:native",
     "build:netlify": "npm run build:dist",
     "android:sync": "npm run build:dist:native && npx cap sync android",
     "android:open": "npx cap open android",
@@ -20,12 +21,16 @@
     "@capacitor/android": "^8.2.0",
     "@capacitor/app": "^8.0.1",
     "@capacitor/core": "^8.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "clean-css": "^5.3.3",
     "express": "^4.21.2",
     "javascript-obfuscator": "^4.1.1"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.2.0",
-    "@ljharb/tsconfig": "^0.3.2"
+    "@vitejs/plugin-react": "^5.0.0",
+    "@ljharb/tsconfig": "^0.3.2",
+    "vite": "^7.0.0"
   }
 }

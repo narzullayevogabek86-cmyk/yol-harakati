@@ -13,13 +13,16 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
 import java.security.spec.KeySpec;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,11 +32,15 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
 import javax.crypto.SecretKeyFactory;
+import javax.crypto.AEADBadTagException;
+import javax.crypto.BadPaddingException;
 import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -48,9 +55,23 @@ public class SecureQuestionsStore {
     private static final int FINAL_TICKET_PASS_CORRECT = 3;
     private static final byte[] IMAGE_MAGIC = "YHQIMGV1".getBytes(StandardCharsets.UTF_8);
     private static final String IMAGE_SECRET_NAMESPACE = "::native-image-key";
+    private static final String BOOTSTRAP_STATUS_LOADING = "loading";
+    private static final String BOOTSTRAP_STATUS_READY = "ready";
+    private static final String BOOTSTRAP_STATUS_ERROR = "error";
+    private static final String ERROR_BOOTSTRAP_FAILED = "QUIZ_BOOTSTRAP_FAILED";
+    private static final String ERROR_ASSET_NOT_FOUND = "QUIZ_ASSET_NOT_FOUND";
+    private static final String ERROR_DECRYPT_FAILED = "QUIZ_DECRYPT_FAILED";
+    private static final String ERROR_DATA_INVALID = "QUIZ_DATA_INVALID";
+    private static final long IMAGE_CACHE_TTL_MS = TimeUnit.DAYS.toMillis(7);
 
-    private static final String[] SECRET_PARTS = new String[] {
-        "YHQ", "::", "offline", "::", "guard", "::", "2026"
+    private static final String[] SECRET_PARTS_B64 = new String[] {
+        "WUhR",
+        "Ojo=",
+        "b2ZmbGluZQ==",
+        "Ojo=",
+        "Z3VhcmQ=",
+        "Ojo=",
+        "MjAyNg=="
     };
 
     private static final Map<String, String> ASSET_BY_LANGUAGE = new HashMap<String, String>() {{
@@ -62,28 +83,34 @@ public class SecureQuestionsStore {
     }};
 
     private final Context context;
-    private final SecureQuestionsDao secureQuestionsDao;
+    private final YhqKeystoreKeyManager keyManager;
+    private volatile SecureQuestionsDao secureQuestionsDao;
     private final Map<String, String> ticketsJsonCache = new HashMap<>();
+    private final Map<String, List<TicketRecord>> quizBankCache = new HashMap<>();
     private final Map<String, String> imageUriCache = new HashMap<>();
     private final Map<String, String> imageFileNameCache = new HashMap<>();
-    private final String imageSessionPrefix = UUID.randomUUID().toString().replace("-", "");
 
     public SecureQuestionsStore(Context context, YhqKeystoreKeyManager keyManager) {
         this.context = context.getApplicationContext();
-        this.secureQuestionsDao = SecureQuestionsDatabase
-            .getInstance(this.context, keyManager)
-            .secureQuestionsDao();
+        this.keyManager = keyManager;
     }
 
-    public synchronized void bootstrap() {
+    public synchronized BootstrapResult bootstrap() {
+        ticketsJsonCache.clear();
+        quizBankCache.clear();
+        imageUriCache.clear();
+        imageFileNameCache.clear();
+
         try {
-            for (Map.Entry<String, String> entry : ASSET_BY_LANGUAGE.entrySet()) {
-                ensureSeeded(entry.getKey(), entry.getValue());
-            }
-            ticketsJsonCache.clear();
+            getSecureQuestionsDao().getSeedVersion("uz");
             purgeStaleImageCache();
+            return BootstrapResult.ready();
         } catch (Exception error) {
-            throw new IllegalStateException("Unable to bootstrap secure questions DB", error);
+            ticketsJsonCache.clear();
+            quizBankCache.clear();
+            imageUriCache.clear();
+            imageFileNameCache.clear();
+            return mapBootstrapFailure(error);
         }
     }
 
@@ -318,13 +345,21 @@ public class SecureQuestionsStore {
     }
 
     private void ensureSeeded(String language, String assetPath) throws Exception {
-        if (assetPath == null || secureQuestionsDao.findByLanguage(language) != null) {
+        if (assetPath == null) {
             return;
         }
 
+        final SecureQuestionsDao dao = getSecureQuestionsDao();
         final String encryptedJson = readAssetText(assetPath);
+        final long seedVersion = computeSeedVersion(encryptedJson);
+        final Long storedSeedVersion = dao.getSeedVersion(language);
+        if (storedSeedVersion != null && storedSeedVersion.longValue() == seedVersion) {
+            return;
+        }
+
         final String ticketsJson = decryptPayloadToTickets(encryptedJson);
-        secureQuestionsDao.upsert(new SecureQuestionsEntity(language, ticketsJson, System.currentTimeMillis()));
+        dao.upsert(new SecureQuestionsEntity(language, ticketsJson, seedVersion));
+        invalidateLanguageCaches(language);
     }
 
     private String getTicketsJson(String language) throws Exception {
@@ -335,7 +370,7 @@ public class SecureQuestionsStore {
         }
 
         ensureSeeded(normalizedLanguage, ASSET_BY_LANGUAGE.get(normalizedLanguage));
-        final String storedJson = secureQuestionsDao.getTicketsJson(normalizedLanguage);
+        final String storedJson = getSecureQuestionsDao().getTicketsJson(normalizedLanguage);
         if (storedJson == null || storedJson.trim().isEmpty()) {
             throw new IllegalStateException("Stored questions not found");
         }
@@ -345,8 +380,17 @@ public class SecureQuestionsStore {
     }
 
     private List<TicketRecord> buildQuizBank(String languageCode, String mode) throws Exception {
-        final List<TicketRecord> standardTickets = buildStandardBank(languageCode);
-        if (!QUIZ_MODE_FIFTY.equals(mode)) {
+        final String normalizedLanguage = normalizeLanguage(languageCode);
+        final String normalizedMode = normalizeQuizMode(mode);
+        final String cacheKey = buildQuizBankCacheKey(normalizedLanguage, normalizedMode);
+        final List<TicketRecord> cachedBank = quizBankCache.get(cacheKey);
+        if (cachedBank != null) {
+            return cachedBank;
+        }
+
+        final List<TicketRecord> standardTickets = buildStandardBank(normalizedLanguage);
+        if (!QUIZ_MODE_FIFTY.equals(normalizedMode)) {
+            quizBankCache.put(cacheKey, standardTickets);
             return standardTickets;
         }
 
@@ -363,7 +407,7 @@ public class SecureQuestionsStore {
             for (int questionCursor = cursor; questionCursor < nextCursor; questionCursor += 1) {
                 ticketQuestions.add(allQuestions.get(questionCursor));
             }
-            fiftyTickets.add(new TicketRecord(index + 1, ticketQuestions));
+            fiftyTickets.add(new TicketRecord(index + 1, Collections.unmodifiableList(ticketQuestions)));
             cursor = nextCursor;
         }
 
@@ -372,12 +416,22 @@ public class SecureQuestionsStore {
         for (int questionCursor = cursor; questionCursor < lastCursor; questionCursor += 1) {
             lastTicketQuestions.add(allQuestions.get(questionCursor));
         }
-        fiftyTickets.add(new TicketRecord(FIFTY_EXAM_REGULAR_TICKETS + 1, lastTicketQuestions));
-        return fiftyTickets;
+        fiftyTickets.add(new TicketRecord(FIFTY_EXAM_REGULAR_TICKETS + 1, Collections.unmodifiableList(lastTicketQuestions)));
+
+        final List<TicketRecord> immutableTickets = Collections.unmodifiableList(fiftyTickets);
+        quizBankCache.put(cacheKey, immutableTickets);
+        return immutableTickets;
     }
 
     private List<TicketRecord> buildStandardBank(String languageCode) throws Exception {
-        final JSONArray ticketsArray = new JSONArray(getTicketsJson(languageCode));
+        final String normalizedLanguage = normalizeLanguage(languageCode);
+        final String cacheKey = buildQuizBankCacheKey(normalizedLanguage, QUIZ_MODE_STANDARD);
+        final List<TicketRecord> cachedTickets = quizBankCache.get(cacheKey);
+        if (cachedTickets != null) {
+            return cachedTickets;
+        }
+
+        final JSONArray ticketsArray = new JSONArray(getTicketsJson(normalizedLanguage));
         final List<TicketRecord> tickets = new ArrayList<>();
 
         for (int ticketIndex = 0; ticketIndex < ticketsArray.length(); ticketIndex += 1) {
@@ -408,10 +462,12 @@ public class SecureQuestionsStore {
                 }
             }
 
-            tickets.add(new TicketRecord(ticketIndex + 1, questionRecords));
+            tickets.add(new TicketRecord(ticketIndex + 1, Collections.unmodifiableList(questionRecords)));
         }
 
-        return tickets;
+        final List<TicketRecord> immutableTickets = Collections.unmodifiableList(tickets);
+        quizBankCache.put(cacheKey, immutableTickets);
+        return immutableTickets;
     }
 
     private QuestionRecord getQuestionRecord(
@@ -567,10 +623,9 @@ public class SecureQuestionsStore {
             throw new IllegalStateException("Unable to create image cache dir");
         }
 
-        final String extension = getFileExtension(imageRef);
         String fileName = imageFileNameCache.get(imageRef);
         if (fileName == null) {
-            fileName = imageSessionPrefix + "_" + UUID.randomUUID().toString().replace("-", "") + extension;
+            fileName = buildImageCacheFileName(imageRef);
             imageFileNameCache.put(imageRef, fileName);
         }
         final File outputFile = new File(outputDir, fileName);
@@ -590,60 +645,50 @@ public class SecureQuestionsStore {
             return;
         }
 
+        final long now = System.currentTimeMillis();
         for (File file : files) {
-            if (file != null && file.isFile()) {
+            if (file == null || !file.isFile()) {
+                continue;
+            }
+
+            final long ageMs = Math.max(0L, now - file.lastModified());
+            if (ageMs > IMAGE_CACHE_TTL_MS) {
                 file.delete();
             }
         }
     }
 
-    private void copyAsset(String assetPath, File outputFile) throws Exception {
-        final AssetManager assets = context.getAssets();
-        try (
-            InputStream inputStream = assets.open(assetPath);
-            FileOutputStream outputStream = new FileOutputStream(outputFile, false)
-        ) {
-            final byte[] buffer = new byte[8192];
-            int read;
-            while ((read = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, read);
-            }
-            outputStream.flush();
-        }
-    }
-
     private void decryptImageAssetToFile(String assetPath, File outputFile) throws Exception {
-        final byte[] encryptedBytes = readAssetBytes(assetPath);
-        if (encryptedBytes.length <= IMAGE_MAGIC.length + 12 + 16) {
-            throw new IllegalStateException("Protected image payload too small");
-        }
+        final AssetManager assets = context.getAssets();
+        try (InputStream inputStream = assets.open(assetPath)) {
+            verifyImageMagic(inputStream);
 
-        for (int index = 0; index < IMAGE_MAGIC.length; index += 1) {
-            if (encryptedBytes[index] != IMAGE_MAGIC[index]) {
-                throw new IllegalStateException("Invalid protected image payload");
+            final byte[] iv = new byte[12];
+            readFully(inputStream, iv);
+
+            final Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(
+                Cipher.DECRYPT_MODE,
+                new SecretKeySpec(getImageSecretKey(), "AES"),
+                new GCMParameterSpec(GCM_TAG_BITS, iv)
+            );
+
+            try (
+                CipherInputStream cipherInputStream = new CipherInputStream(inputStream, cipher);
+                FileOutputStream outputStream = new FileOutputStream(outputFile, false)
+            ) {
+                final byte[] buffer = new byte[8192];
+                int read;
+                while ((read = cipherInputStream.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, read);
+                }
+                outputStream.flush();
+            } catch (IOException error) {
+                if (outputFile.exists()) {
+                    outputFile.delete();
+                }
+                throw error;
             }
-        }
-
-        final int ivStart = IMAGE_MAGIC.length;
-        final int ivEnd = ivStart + 12;
-        final byte[] iv = new byte[12];
-        System.arraycopy(encryptedBytes, ivStart, iv, 0, iv.length);
-
-        final int cipherLength = encryptedBytes.length - ivEnd;
-        final byte[] cipherBytes = new byte[cipherLength];
-        System.arraycopy(encryptedBytes, ivEnd, cipherBytes, 0, cipherLength);
-
-        final Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(
-            Cipher.DECRYPT_MODE,
-            new SecretKeySpec(getImageSecretKey(), "AES"),
-            new GCMParameterSpec(GCM_TAG_BITS, iv)
-        );
-
-        final byte[] plain = cipher.doFinal(cipherBytes);
-        try (FileOutputStream outputStream = new FileOutputStream(outputFile, false)) {
-            outputStream.write(plain);
-            outputStream.flush();
         }
     }
 
@@ -653,6 +698,10 @@ public class SecureQuestionsStore {
             return "";
         }
         return path.substring(dotIndex);
+    }
+
+    private String buildImageCacheFileName(String imageRef) throws Exception {
+        return "img_" + sha256Hex(imageRef).substring(0, 32) + getFileExtension(imageRef);
     }
 
     private String getProtectedImageAssetPath(String imageRef) throws Exception {
@@ -671,21 +720,6 @@ public class SecureQuestionsStore {
             }
         }
         return builder.toString();
-    }
-
-    private byte[] readAssetBytes(String assetPath) throws Exception {
-        final AssetManager assets = context.getAssets();
-        try (
-            InputStream inputStream = assets.open(assetPath);
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream(8192)
-        ) {
-            final byte[] buffer = new byte[8192];
-            int read;
-            while ((read = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, read);
-            }
-            return outputStream.toByteArray();
-        }
     }
 
     private String decryptPayloadToTickets(String encryptedPayloadText) throws Exception {
@@ -727,10 +761,107 @@ public class SecureQuestionsStore {
 
     private String getSecretPassphrase() {
         final StringBuilder builder = new StringBuilder();
-        for (String part : SECRET_PARTS) {
-            builder.append(part);
+        for (String encodedPart : SECRET_PARTS_B64) {
+            builder.append(new String(Base64.decode(encodedPart, Base64.NO_WRAP), StandardCharsets.UTF_8));
         }
         return builder.toString();
+    }
+
+    private synchronized SecureQuestionsDao getSecureQuestionsDao() {
+        if (secureQuestionsDao == null) {
+            secureQuestionsDao = SecureQuestionsDatabase
+                .getInstance(context, keyManager)
+                .secureQuestionsDao();
+        }
+        return secureQuestionsDao;
+    }
+
+    private void invalidateLanguageCaches(String language) {
+        ticketsJsonCache.remove(language);
+        quizBankCache.remove(buildQuizBankCacheKey(language, QUIZ_MODE_STANDARD));
+        quizBankCache.remove(buildQuizBankCacheKey(language, QUIZ_MODE_FIFTY));
+    }
+
+    private String buildQuizBankCacheKey(String language, String mode) {
+        return normalizeLanguage(language) + "|" + normalizeQuizMode(mode);
+    }
+
+    private long computeSeedVersion(String encryptedJson) throws Exception {
+        final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        final byte[] hash = digest.digest(encryptedJson.getBytes(StandardCharsets.UTF_8));
+        long version = 0L;
+        for (int index = 0; index < Math.min(8, hash.length); index += 1) {
+            version = (version << 8) | (hash[index] & 0xffL);
+        }
+        return version;
+    }
+
+    private void verifyImageMagic(InputStream inputStream) throws Exception {
+        final byte[] actualMagic = new byte[IMAGE_MAGIC.length];
+        readFully(inputStream, actualMagic);
+        for (int index = 0; index < IMAGE_MAGIC.length; index += 1) {
+            if (actualMagic[index] != IMAGE_MAGIC[index]) {
+                throw new IllegalStateException("Invalid protected image payload");
+            }
+        }
+    }
+
+    private void readFully(InputStream inputStream, byte[] buffer) throws Exception {
+        int offset = 0;
+        while (offset < buffer.length) {
+            final int read = inputStream.read(buffer, offset, buffer.length - offset);
+            if (read == -1) {
+                throw new IllegalStateException("Protected image payload too small");
+            }
+            offset += read;
+        }
+    }
+
+    private BootstrapResult mapBootstrapFailure(Exception error) {
+        final Throwable rootCause = getRootCause(error);
+        if (rootCause instanceof FileNotFoundException) {
+            return BootstrapResult.failure(
+                ERROR_ASSET_NOT_FOUND,
+                "Secure quiz asset was not found in the APK",
+                error
+            );
+        }
+
+        if (
+            rootCause instanceof AEADBadTagException
+                || rootCause instanceof BadPaddingException
+                || rootCause instanceof IllegalBlockSizeException
+                || rootCause instanceof InvalidKeyException
+                || rootCause instanceof InvalidAlgorithmParameterException
+        ) {
+            return BootstrapResult.failure(
+                ERROR_DECRYPT_FAILED,
+                "Secure quiz asset could not be decrypted",
+                error
+            );
+        }
+
+        if (rootCause instanceof org.json.JSONException || rootCause instanceof IllegalStateException) {
+            return BootstrapResult.failure(
+                ERROR_DATA_INVALID,
+                "Secure quiz asset is malformed",
+                error
+            );
+        }
+
+        return BootstrapResult.failure(
+            ERROR_BOOTSTRAP_FAILED,
+            "Secure quiz bootstrap failed",
+            error
+        );
+    }
+
+    private Throwable getRootCause(Throwable error) {
+        Throwable cursor = error;
+        while (cursor != null && cursor.getCause() != null && cursor.getCause() != cursor) {
+            cursor = cursor.getCause();
+        }
+        return cursor != null ? cursor : error;
     }
 
     private byte[] getImageSecretKey() throws Exception {
@@ -818,6 +949,56 @@ public class SecureQuestionsStore {
             }
             this.hasImage = hasImage;
             this.score = score;
+        }
+    }
+
+    public static final class BootstrapResult {
+        private final String status;
+        private final String code;
+        private final String message;
+        private final Exception exception;
+
+        private BootstrapResult(String status, String code, String message, Exception exception) {
+            this.status = status;
+            this.code = code;
+            this.message = message;
+            this.exception = exception;
+        }
+
+        public static BootstrapResult loading() {
+            return new BootstrapResult(BOOTSTRAP_STATUS_LOADING, null, null, null);
+        }
+
+        public static BootstrapResult ready() {
+            return new BootstrapResult(BOOTSTRAP_STATUS_READY, null, null, null);
+        }
+
+        public static BootstrapResult failure(String code, String message, Exception exception) {
+            return new BootstrapResult(BOOTSTRAP_STATUS_ERROR, code, message, exception);
+        }
+
+        public boolean isSuccess() {
+            return BOOTSTRAP_STATUS_READY.equals(status);
+        }
+
+        public boolean isLoading() {
+            return BOOTSTRAP_STATUS_LOADING.equals(status);
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public Exception getException() {
+            return exception;
         }
     }
 }

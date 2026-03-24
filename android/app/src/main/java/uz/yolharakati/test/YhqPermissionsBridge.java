@@ -1,10 +1,14 @@
 package uz.yolharakati.test;
 
+import android.Manifest;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.os.Looper;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
+import androidx.annotation.Keep;
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationManagerCompat;
 
 import com.getcapacitor.Bridge;
@@ -12,10 +16,14 @@ import com.getcapacitor.Bridge;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+
 public class YhqPermissionsBridge {
-    private static final String PREFS_NAME = "yhq_permissions";
-    private static final String STARTUP_PROMPT_KEY = "startup_permissions_prompted_v1";
+    private static final String STARTUP_PROMPT_KEY = "startup_permissions_prompted_v2";
     private static final String EVENT_NAME = "yhq:permissions-changed";
+    private static final int NOTIFICATIONS_PERMISSION_REQUEST_CODE = 4107;
 
     private final MainActivity activity;
 
@@ -23,34 +31,66 @@ public class YhqPermissionsBridge {
         this.activity = activity;
     }
 
+    @Keep
     @JavascriptInterface
     public String getPermissionSnapshot() {
         return buildPermissionSnapshotJson();
     }
 
+    @Keep
     @JavascriptInterface
     public void requestStartupPermissions() {
         activity.runOnUiThread(this::requestStartupPermissionsInternal);
     }
 
+    @Keep
+    @JavascriptInterface
+    public String setNotificationsEnabled(String enabledValue) {
+        final boolean enabled = Boolean.parseBoolean(enabledValue);
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            applyNotificationsPreference(enabled, true);
+            return buildPermissionSnapshotJson();
+        }
+
+        final CountDownLatch latch = new CountDownLatch(1);
+        final AtomicReference<String> snapshotRef = new AtomicReference<>();
+        activity.runOnUiThread(() -> {
+            try {
+                applyNotificationsPreference(enabled, true);
+                snapshotRef.set(buildPermissionSnapshotJson());
+            } finally {
+                latch.countDown();
+            }
+        });
+
+        try {
+            latch.await(2, TimeUnit.SECONDS);
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+        }
+
+        final String snapshot = snapshotRef.get();
+        return snapshot != null ? snapshot : buildPermissionSnapshotJson();
+    }
+
+    @Keep
     @JavascriptInterface
     public void setSystemBarsTheme(String theme) {
         activity.syncSystemBarsTheme(theme);
     }
 
     public void maybeRequestStartupPermissions() {
-        if (!wasStartupPromptShown()) {
-            markStartupPromptShown();
-            requestStartupPermissionsInternal();
-            return;
-        }
-
-        emitPermissionSnapshot();
+        refreshPermissionState(true, true);
     }
 
     public boolean handleRequestPermissionsResult(int requestCode) {
-        emitPermissionSnapshot();
-        return false;
+        if (requestCode != NOTIFICATIONS_PERMISSION_REQUEST_CODE) {
+            emitPermissionSnapshot();
+            return false;
+        }
+
+        refreshPermissionState(false, true);
+        return true;
     }
 
     public void emitPermissionSnapshot() {
@@ -70,8 +110,62 @@ public class YhqPermissionsBridge {
         ));
     }
 
+    private void refreshPermissionState(boolean allowPrompt, boolean emitSnapshot) {
+        if (allowPrompt && shouldPromptForNotificationsOnStartup()) {
+            markStartupPromptShown();
+            requestRuntimeNotificationsPermission();
+            return;
+        }
+
+        syncReminderSchedule();
+        if (emitSnapshot) {
+            emitPermissionSnapshot();
+        }
+    }
+
     private void requestStartupPermissionsInternal() {
+        refreshPermissionState(true, true);
+    }
+
+    private void applyNotificationsPreference(boolean enabled, boolean requestPermissionIfNeeded) {
+        YhqReminderPreferences.setNotificationsEnabledPreference(activity, enabled);
+
+        if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !isNotificationsGranted()) {
+            if (requestPermissionIfNeeded) {
+                markStartupPromptShown();
+                requestRuntimeNotificationsPermission();
+                return;
+            }
+        }
+
+        syncReminderSchedule();
         emitPermissionSnapshot();
+    }
+
+    private void syncReminderSchedule() {
+        final boolean shouldSchedule =
+            YhqReminderPreferences.areNotificationsEnabledPreference(activity) && isNotificationsGranted();
+        YhqReminderScheduler.syncReminderSchedule(activity, shouldSchedule);
+    }
+
+    private boolean shouldPromptForNotificationsOnStartup() {
+        return YhqReminderPreferences.areNotificationsEnabledPreference(activity)
+            && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            && !isNotificationsGranted()
+            && !wasStartupPromptShown();
+    }
+
+    private void requestRuntimeNotificationsPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            refreshPermissionState(false, true);
+            return;
+        }
+
+        ActivityCompat.requestPermissions(
+            activity,
+            new String[]{Manifest.permission.POST_NOTIFICATIONS},
+            NOTIFICATIONS_PERMISSION_REQUEST_CODE
+        );
     }
 
     private boolean wasStartupPromptShown() {
@@ -83,7 +177,7 @@ public class YhqPermissionsBridge {
     }
 
     private SharedPreferences getPreferences() {
-        return activity.getSharedPreferences(PREFS_NAME, MainActivity.MODE_PRIVATE);
+        return YhqReminderPreferences.getPreferences(activity);
     }
 
     private boolean isNotificationsGranted() {
@@ -92,11 +186,16 @@ public class YhqPermissionsBridge {
 
     private String buildPermissionSnapshotJson() {
         try {
+            final boolean remindersEnabled = YhqReminderPreferences.areNotificationsEnabledPreference(activity);
+            final boolean notificationsGranted = isNotificationsGranted();
+
             final JSONObject snapshot = new JSONObject();
             snapshot.put("platform", "android");
             snapshot.put("sdkInt", Build.VERSION.SDK_INT);
             snapshot.put("startupPromptShown", wasStartupPromptShown());
-            snapshot.put("notificationsGranted", isNotificationsGranted());
+            snapshot.put("notificationsGranted", notificationsGranted);
+            snapshot.put("remindersEnabled", remindersEnabled);
+            snapshot.put("remindersActive", remindersEnabled && notificationsGranted);
             return snapshot.toString();
         } catch (JSONException error) {
             return "{}";
