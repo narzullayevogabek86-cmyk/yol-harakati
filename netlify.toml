@@ -3,6 +3,9 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[build.environment]
+  NODE_VERSION = "24.14.1"
+
 [functions."quiz-questions"]
   included_files = [
     "questions.uz.json",

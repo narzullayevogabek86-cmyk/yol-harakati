@@ -3,7 +3,8 @@ const {
     buildQuizBank,
     getRawDataset,
     gradeTicketSubmission,
-    json
+    json,
+    parseJsonBody
 } = require('./lib/shared');
 
 exports.handler = async (event) => {
@@ -12,7 +13,7 @@ exports.handler = async (event) => {
             return json(405, { ok: false, error: 'METHOD_NOT_ALLOWED' });
         }
 
-        const payload = JSON.parse(event.body || '{}');
+        const payload = parseJsonBody(event);
         const {
             language,
             mode,
@@ -26,7 +27,7 @@ exports.handler = async (event) => {
 
         const ticketPosition = Number(ticketNumber);
         if (!Number.isInteger(ticketPosition) || ticketPosition < 1) {
-            return json(400, { ok: false, error: 'INVALID_SUBMISSION' });
+            return json(400, { ok: false, error: 'INVALID_TICKET' });
         }
 
         const dataset = await getRawDataset(language);
@@ -35,7 +36,7 @@ exports.handler = async (event) => {
         const ticket = bank[ticketPosition - 1];
 
         if (!ticket || !Array.isArray(ticket.questions)) {
-            return json(400, { ok: false, error: 'INVALID_SUBMISSION' });
+            return json(404, { ok: false, error: 'TICKET_NOT_FOUND' });
         }
 
         const result = gradeTicketSubmission({
@@ -51,6 +52,13 @@ exports.handler = async (event) => {
             ...result
         });
     } catch (error) {
+        if (error?.code === 'INVALID_JSON_BODY') {
+            return json(400, {
+                ok: false,
+                error: 'INVALID_JSON_BODY'
+            });
+        }
+
         return json(500, {
             ok: false,
             error: 'QUIZ_SUBMIT_FAILED'

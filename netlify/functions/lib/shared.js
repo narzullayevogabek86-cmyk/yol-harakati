@@ -25,6 +25,25 @@ function json(statusCode, payload) {
     };
 }
 
+function parseJsonBody(event) {
+    const rawBody = event?.body;
+    if (rawBody == null || rawBody === '') {
+        return {};
+    }
+
+    const bodyText = event?.isBase64Encoded
+        ? Buffer.from(String(rawBody), 'base64').toString('utf8')
+        : String(rawBody);
+
+    try {
+        const parsed = JSON.parse(bodyText);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (error) {
+        error.code = 'INVALID_JSON_BODY';
+        throw error;
+    }
+}
+
 async function resolveQuestionsRootDir() {
     if (!rootDirPromise) {
         rootDirPromise = resolveProjectRoot({
@@ -60,5 +79,6 @@ module.exports = {
     getRawDataset,
     getQuestionRecord,
     gradeTicketSubmission,
-    json
+    json,
+    parseJsonBody
 };

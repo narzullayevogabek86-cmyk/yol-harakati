@@ -182,8 +182,12 @@ public class YhqQuizPlugin extends Plugin {
     public void submitQuiz(PluginCall call) {
         final Integer ticketNumber = call.getInt("ticketNumber");
         final JSArray answers = call.getArray("answers");
-        if (ticketNumber == null || answers == null) {
+        if (answers == null) {
             rejectCall(call, "INVALID_SUBMISSION", "INVALID_SUBMISSION", null, null);
+            return;
+        }
+        if (ticketNumber == null || ticketNumber < 1) {
+            rejectCall(call, "INVALID_TICKET", "INVALID_TICKET", null, null);
             return;
         }
 
@@ -202,7 +206,7 @@ public class YhqQuizPlugin extends Plugin {
             final YhqKeystoreKeyManager keyManager = new YhqKeystoreKeyManager(getContext());
             final SecureQuestionsStore store = new SecureQuestionsStore(getContext(), keyManager);
             final SecureQuestionsStore.BootstrapResult result = store.bootstrap();
-            updateBootstrapState(result, store);
+            updateBootstrapState(result, result.isSuccess() ? store : null);
         } catch (Exception error) {
             updateBootstrapState(
                 SecureQuestionsStore.BootstrapResult.failure(
@@ -238,6 +242,8 @@ public class YhqQuizPlugin extends Plugin {
 
                 try {
                     resolveCall(call, task.run(store));
+                } catch (SecureQuestionsStore.StoreRequestException error) {
+                    rejectCall(call, error.getCode(), error.getCode(), null, null);
                 } catch (IllegalArgumentException error) {
                     final String rejectionCode = invalidRequestCode != null ? invalidRequestCode : failureCode;
                     rejectCall(call, rejectionCode, rejectionCode, error, null);

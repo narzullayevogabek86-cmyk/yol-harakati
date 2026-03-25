@@ -34,7 +34,7 @@ public class MainActivity extends BridgeActivity {
         if (bridge != null && bridge.getWebView() != null) {
             final WebView webView = bridge.getWebView();
             hardenWebView(webView);
-            webView.addJavascriptInterface(permissionsBridge, "YHQPermissionsBridge");
+            webView.addJavascriptInterface(permissionsBridge, YhqPermissionsBridge.JS_INTERFACE_NAME);
         }
     }
 

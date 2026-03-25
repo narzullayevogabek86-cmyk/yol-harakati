@@ -2,9 +2,16 @@
 
 This repository contains a static JavaScript web app for driving-test content, a local Express server, Netlify functions, and a Capacitor Android target.
 
+## Requirements
+
+- Node.js `24.14.1` LTS (`24.x` only)
+- Run `nvm use` in the repo root before `npm install`, `npm run build`, `npm run dev`, or Capacitor commands
+- The repo will fail fast on unsupported Node versions
+
 ## Commands
 
 - `npm start`: rebuilds generated assets and starts the local server on port `3001`
+- `npm run check:node`: verifies the pinned Node 24 LTS runtime
 - `npm run build`: generates encrypted question payloads and hashed web assets
 - `npm run build:dist`: builds the deployable `dist/` folder for Netlify
 - `npm run build:dist:native`: builds the native-ready `dist/` output and secure mobile assets

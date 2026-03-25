@@ -25,6 +25,22 @@ const DIST_INDEX_FILE = path.join(DIST_DIR, 'index.html');
 const SIGNS_TG_TRANSLATIONS_FILE = 'signs-tg-translations.json';
 
 app.use(express.json({ limit: '1mb' }));
+app.use((error, req, res, next) => {
+    if (
+        error
+        && error instanceof SyntaxError
+        && error.status === 400
+        && Object.prototype.hasOwnProperty.call(error, 'body')
+        && req.path.startsWith('/api/')
+    ) {
+        return res.status(400).json({
+            ok: false,
+            error: 'INVALID_JSON_BODY'
+        });
+    }
+
+    return next(error);
+});
 
 app.get(['/', '/index.html'], async (_req, res) => {
     try {
@@ -196,6 +212,13 @@ app.post('/api/quiz/submit', async (req, res) => {
             error: 'QUIZ_SUBMIT_FAILED'
         });
     }
+});
+
+app.use('/api', (_req, res) => {
+    res.status(404).json({
+        ok: false,
+        error: 'API_ROUTE_NOT_FOUND'
+    });
 });
 
 app.use(express.static(DIST_DIR));

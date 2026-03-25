@@ -1,6 +1,7 @@
 const {
     getQuestionRecord,
-    json
+    json,
+    parseJsonBody
 } = require('./lib/shared');
 
 exports.handler = async (event) => {
@@ -9,7 +10,7 @@ exports.handler = async (event) => {
             return json(405, { ok: false, error: 'METHOD_NOT_ALLOWED' });
         }
 
-        const payload = JSON.parse(event.body || '{}');
+        const payload = parseJsonBody(event);
         const {
             language,
             mode,
@@ -44,6 +45,13 @@ exports.handler = async (event) => {
             isCorrect: userAnswer === record.question.correct
         });
     } catch (error) {
+        if (error?.code === 'INVALID_JSON_BODY') {
+            return json(400, {
+                ok: false,
+                error: 'INVALID_JSON_BODY'
+            });
+        }
+
         return json(500, {
             ok: false,
             error: 'ANSWER_VALIDATION_FAILED'

@@ -37,6 +37,10 @@ public class YhqKeystoreKeyManager {
             final String storedData = prefs.getString(ENC_DATA, null);
             final String storedIv = prefs.getString(ENC_IV, null);
 
+            if ((storedData == null) != (storedIv == null)) {
+                clearStoredPassphrase(prefs);
+            }
+
             if (storedData != null && storedIv != null) {
                 final byte[] restored = decryptFromPrefs(storedData, storedIv);
                 try {
@@ -51,9 +55,28 @@ public class YhqKeystoreKeyManager {
             final String[] encrypted = encryptForPrefs(raw);
 
             persistEncryptedKey(prefs, encrypted[0], encrypted[1]);
-            return Base64.encode(raw, Base64.NO_WRAP);
+            try {
+                return Base64.encode(raw, Base64.NO_WRAP);
+            } finally {
+                Arrays.fill(raw, (byte) 0);
+            }
         } catch (Exception error) {
             throw new IllegalStateException("Unable to provide secure DB passphrase", error);
+        }
+    }
+
+    public synchronized void resetDbPassphraseState() {
+        try {
+            final SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            clearStoredPassphrase(prefs);
+
+            final KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
+            keyStore.load(null);
+            if (keyStore.containsAlias(KEY_ALIAS)) {
+                keyStore.deleteEntry(KEY_ALIAS);
+            }
+        } catch (Exception error) {
+            throw new IllegalStateException("Unable to reset secure DB passphrase state", error);
         }
     }
 
@@ -69,6 +92,17 @@ public class YhqKeystoreKeyManager {
 
         if (prefs.getString(ENC_DATA, null) == null || prefs.getString(ENC_IV, null) == null) {
             throw new IllegalStateException("Secure DB passphrase write verification failed");
+        }
+    }
+
+    private void clearStoredPassphrase(SharedPreferences prefs) {
+        final boolean committed = prefs.edit()
+            .remove(ENC_DATA)
+            .remove(ENC_IV)
+            .commit();
+
+        if (!committed) {
+            throw new IllegalStateException("Unable to clear secure DB passphrase state");
         }
     }
 

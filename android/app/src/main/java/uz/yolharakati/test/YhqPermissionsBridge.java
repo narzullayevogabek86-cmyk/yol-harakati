@@ -18,14 +18,17 @@ import org.json.JSONObject;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class YhqPermissionsBridge {
+    public static final String JS_INTERFACE_NAME = "YHQPermissionsBridge";
     private static final String STARTUP_PROMPT_KEY = "startup_permissions_prompted_v2";
     private static final String EVENT_NAME = "yhq:permissions-changed";
     private static final int NOTIFICATIONS_PERMISSION_REQUEST_CODE = 4107;
 
     private final MainActivity activity;
+    private final AtomicBoolean permissionRequestInFlight = new AtomicBoolean(false);
 
     public YhqPermissionsBridge(MainActivity activity) {
         this.activity = activity;
@@ -46,7 +49,11 @@ public class YhqPermissionsBridge {
     @Keep
     @JavascriptInterface
     public String setNotificationsEnabled(String enabledValue) {
-        final boolean enabled = Boolean.parseBoolean(enabledValue);
+        final Boolean enabled = parseStrictBoolean(enabledValue);
+        if (enabled == null) {
+            return buildPermissionSnapshotJson();
+        }
+
         if (Looper.myLooper() == Looper.getMainLooper()) {
             applyNotificationsPreference(enabled, true);
             return buildPermissionSnapshotJson();
@@ -89,6 +96,7 @@ public class YhqPermissionsBridge {
             return false;
         }
 
+        permissionRequestInFlight.set(false);
         refreshPermissionState(false, true);
         return true;
     }
@@ -124,6 +132,11 @@ public class YhqPermissionsBridge {
     }
 
     private void requestStartupPermissionsInternal() {
+        if (isActivityUnavailable()) {
+            emitPermissionSnapshot();
+            return;
+        }
+
         refreshPermissionState(true, true);
     }
 
@@ -170,6 +183,23 @@ public class YhqPermissionsBridge {
             return;
         }
 
+        if (isActivityUnavailable()) {
+            permissionRequestInFlight.set(false);
+            refreshPermissionState(false, true);
+            return;
+        }
+
+        if (isNotificationsGranted()) {
+            permissionRequestInFlight.set(false);
+            refreshPermissionState(false, true);
+            return;
+        }
+
+        if (!permissionRequestInFlight.compareAndSet(false, true)) {
+            emitPermissionSnapshot();
+            return;
+        }
+
         ActivityCompat.requestPermissions(
             activity,
             new String[]{Manifest.permission.POST_NOTIFICATIONS},
@@ -193,6 +223,25 @@ public class YhqPermissionsBridge {
         return NotificationManagerCompat.from(activity).areNotificationsEnabled();
     }
 
+    private Boolean parseStrictBoolean(String rawValue) {
+        if (rawValue == null) {
+            return null;
+        }
+
+        final String normalized = rawValue.trim().toLowerCase();
+        if ("true".equals(normalized)) {
+            return true;
+        }
+        if ("false".equals(normalized)) {
+            return false;
+        }
+        return null;
+    }
+
+    private boolean isActivityUnavailable() {
+        return activity.isFinishing() || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && activity.isDestroyed());
+    }
+
     private String buildPermissionSnapshotJson() {
         try {
             final boolean remindersEnabled = YhqReminderPreferences.areNotificationsEnabledPreference(activity);
@@ -205,6 +254,7 @@ public class YhqPermissionsBridge {
             snapshot.put("notificationsGranted", notificationsGranted);
             snapshot.put("remindersEnabled", remindersEnabled);
             snapshot.put("remindersActive", remindersEnabled && notificationsGranted);
+            snapshot.put("permissionRequestInFlight", permissionRequestInFlight.get());
             return snapshot.toString();
         } catch (JSONException error) {
             return "{}";

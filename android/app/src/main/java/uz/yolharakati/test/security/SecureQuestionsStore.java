@@ -96,22 +96,29 @@ public class SecureQuestionsStore {
     }
 
     public synchronized BootstrapResult bootstrap() {
-        ticketsJsonCache.clear();
-        quizBankCache.clear();
-        imageUriCache.clear();
-        imageFileNameCache.clear();
+        final BootstrapResult initialResult = bootstrapOnce();
+        if (initialResult.isSuccess()) {
+            return initialResult;
+        }
+
+        if (!shouldAttemptBootstrapRecovery(initialResult.getException())) {
+            return initialResult;
+        }
 
         try {
-            getSecureQuestionsDao().getSeedVersion("uz");
-            purgeStaleImageCache();
-            return BootstrapResult.ready();
-        } catch (Exception error) {
-            ticketsJsonCache.clear();
-            quizBankCache.clear();
-            imageUriCache.clear();
-            imageFileNameCache.clear();
-            return mapBootstrapFailure(error);
+            resetPersistentBootstrapState();
+        } catch (Exception recoveryError) {
+            if (initialResult.getException() != null) {
+                recoveryError.addSuppressed(initialResult.getException());
+            }
+            return mapBootstrapFailure(recoveryError);
         }
+
+        final BootstrapResult recoveryResult = bootstrapOnce();
+        if (!recoveryResult.isSuccess() && recoveryResult.getException() != null && initialResult.getException() != null) {
+            recoveryResult.getException().addSuppressed(initialResult.getException());
+        }
+        return recoveryResult;
     }
 
     public synchronized JSArray getCatalog(String languageCode) throws Exception {
@@ -301,8 +308,11 @@ public class SecureQuestionsStore {
         JSArray answers
     ) throws Exception {
         final List<TicketRecord> bank = buildQuizBank(normalizeLanguage(languageCode), normalizeQuizMode(mode));
-        if (ticketNumber < 1 || ticketNumber > bank.size()) {
-            throw new IllegalArgumentException("Invalid ticket");
+        if (ticketNumber < 1) {
+            throw new StoreRequestException("INVALID_TICKET", "Invalid ticket");
+        }
+        if (ticketNumber > bank.size()) {
+            throw new StoreRequestException("TICKET_NOT_FOUND", "Ticket not found");
         }
 
         final TicketRecord ticket = bank.get(ticketNumber - 1);
@@ -776,6 +786,42 @@ public class SecureQuestionsStore {
         return secureQuestionsDao;
     }
 
+    private BootstrapResult bootstrapOnce() {
+        clearRuntimeState();
+
+        try {
+            getSecureQuestionsDao().getSeedVersion("uz");
+            purgeStaleImageCache();
+            return BootstrapResult.ready();
+        } catch (Exception error) {
+            clearRuntimeState();
+            return mapBootstrapFailure(error);
+        }
+    }
+
+    private void clearRuntimeState() {
+        ticketsJsonCache.clear();
+        quizBankCache.clear();
+        imageUriCache.clear();
+        imageFileNameCache.clear();
+        secureQuestionsDao = null;
+    }
+
+    private boolean shouldAttemptBootstrapRecovery(Exception error) {
+        if (error == null) {
+            return false;
+        }
+
+        final Throwable rootCause = getRootCause(error);
+        return !(rootCause instanceof FileNotFoundException);
+    }
+
+    private void resetPersistentBootstrapState() {
+        clearRuntimeState();
+        SecureQuestionsDatabase.reset(context);
+        keyManager.resetDbPassphraseState();
+    }
+
     private void invalidateLanguageCaches(String language) {
         ticketsJsonCache.remove(language);
         quizBankCache.remove(buildQuizBankCacheKey(language, QUIZ_MODE_STANDARD));
@@ -999,6 +1045,19 @@ public class SecureQuestionsStore {
 
         public Exception getException() {
             return exception;
+        }
+    }
+
+    public static final class StoreRequestException extends Exception {
+        private final String code;
+
+        public StoreRequestException(String code, String message) {
+            super(message);
+            this.code = code;
+        }
+
+        public String getCode() {
+            return code;
         }
     }
 }

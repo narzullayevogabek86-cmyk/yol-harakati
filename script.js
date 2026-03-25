@@ -1407,7 +1407,10 @@ function setNativeNotificationsEnabled(enabled) {
     }
 
     try {
-        bridge.setNotificationsEnabled(enabled ? 'true' : 'false');
+        const snapshot = parseNativePermissionSnapshot(bridge.setNotificationsEnabled(enabled ? 'true' : 'false'));
+        if (snapshot) {
+            syncNativePermissionState(snapshot);
+        }
         return true;
     } catch (error) {
         console.warn('Native notifications toggle error:', error);
@@ -1898,7 +1901,10 @@ async function bootstrapLegacyApp() {
 
 export function initLegacyApp() {
     if (!legacyAppInitPromise) {
-        legacyAppInitPromise = bootstrapLegacyApp();
+        legacyAppInitPromise = bootstrapLegacyApp().catch((error) => {
+            legacyAppInitPromise = null;
+            throw error;
+        });
     }
     return legacyAppInitPromise;
 }
@@ -3593,7 +3599,10 @@ async function loadSignsStaticData() {
         }
 
         return payload;
-    })();
+    })().catch((error) => {
+        signsStaticDataPromise = null;
+        throw error;
+    });
 
     return signsStaticDataPromise;
 }

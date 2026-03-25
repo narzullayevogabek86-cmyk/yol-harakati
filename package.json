@@ -2,7 +2,19 @@
   "name": "yol-harakati",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=24.14.1 <25"
+  },
   "scripts": {
+    "check:node": "node scripts/check-node-version.js",
+    "preinstall": "node scripts/check-node-version.js",
+    "predev": "node scripts/check-node-version.js",
+    "prebuild:protected": "node scripts/check-node-version.js",
+    "prebuild": "node scripts/check-node-version.js",
+    "prebuild:native": "node scripts/check-node-version.js",
+    "preandroid:sync": "node scripts/check-node-version.js",
+    "preandroid:open": "node scripts/check-node-version.js",
+    "preandroid:run": "node scripts/check-node-version.js",
     "build:protected": "node build-protected-content.js && node build-signs-static.js",
     "dev": "vite",
     "build": "npm run build:protected && vite build && node build-netlify-dist.js",
