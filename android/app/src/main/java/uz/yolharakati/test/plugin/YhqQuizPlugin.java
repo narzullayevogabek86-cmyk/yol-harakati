@@ -10,6 +10,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import uz.yolharakati.test.security.SecureQuestionsStore;
 import uz.yolharakati.test.security.YhqKeystoreKeyManager;
@@ -19,14 +20,19 @@ public class YhqQuizPlugin extends Plugin {
     private static final String ERROR_STORE_UNAVAILABLE = "QUIZ_STORE_UNAVAILABLE";
     private static final String ERROR_BOOTSTRAP_LOADING = "QUIZ_BOOTSTRAP_LOADING";
     private static final String EVENT_BOOTSTRAP_STATE = "bootstrapState";
+    private static final long SHUTDOWN_TIMEOUT_MS = 2_000L;
 
-    private final ExecutorService storeExecutor = Executors.newSingleThreadExecutor();
+    // Named daemon thread improves ANR/thread-dump readability and avoids hanging teardown.
+    private final ExecutorService storeExecutor = Executors.newSingleThreadExecutor((runnable) -> {
+        final Thread thread = new Thread(runnable, "yhq-quiz-store");
+        thread.setDaemon(true);
+        return thread;
+    });
     private volatile SecureQuestionsStore secureQuestionsStore;
     private volatile SecureQuestionsStore.BootstrapResult bootstrapResult = SecureQuestionsStore.BootstrapResult.loading();
 
     @Override
     public void load() {
-        secureQuestionsStore = null;
         updateBootstrapState(SecureQuestionsStore.BootstrapResult.loading(), null);
 
         try {
@@ -45,13 +51,25 @@ public class YhqQuizPlugin extends Plugin {
 
     @Override
     protected void handleOnDestroy() {
-        storeExecutor.shutdownNow();
+        // Stop accepting new work first, then give in-flight tasks a brief grace period.
+        storeExecutor.shutdown();
+
+        try {
+            if (!storeExecutor.awaitTermination(SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                storeExecutor.shutdownNow();
+            }
+        } catch (InterruptedException error) {
+            storeExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 
     @PluginMethod
     public void getBootstrapState(PluginCall call) {
-        final JSObject response = buildBootstrapStatePayload(bootstrapResult);
-        response.put("ok", bootstrapResult.isSuccess());
+        // Snapshot the volatile state once so payload and ok flag stay consistent.
+        final SecureQuestionsStore.BootstrapResult snapshot = bootstrapResult;
+        final JSObject response = buildBootstrapStatePayload(snapshot);
+        response.put("ok", snapshot.isSuccess());
         resolveCall(call, response);
     }
 
@@ -205,13 +223,9 @@ public class YhqQuizPlugin extends Plugin {
     ) {
         try {
             storeExecutor.execute(() -> {
+                // Read the volatile result once to avoid mixed-state checks.
                 final SecureQuestionsStore.BootstrapResult currentBootstrapResult = bootstrapResult;
-                if (currentBootstrapResult.isLoading()) {
-                    rejectBootstrapFailure(call, currentBootstrapResult);
-                    return;
-                }
-
-                if (!currentBootstrapResult.isSuccess()) {
+                if (currentBootstrapResult.isLoading() || !currentBootstrapResult.isSuccess()) {
                     rejectBootstrapFailure(call, currentBootstrapResult);
                     return;
                 }
@@ -237,6 +251,7 @@ public class YhqQuizPlugin extends Plugin {
     }
 
     private void updateBootstrapState(SecureQuestionsStore.BootstrapResult result, SecureQuestionsStore store) {
+        // Store is written before result so a visible success state has a backing store.
         secureQuestionsStore = store;
         bootstrapResult = result;
         emitBootstrapState(result);
@@ -252,17 +267,13 @@ public class YhqQuizPlugin extends Plugin {
     }
 
     private JSObject buildBootstrapStatePayload(SecureQuestionsStore.BootstrapResult result) {
-        final JSObject data = new JSObject();
-        data.put("status", result.getStatus());
-        data.put("fatal", !result.isLoading());
-
-        if (result.getCode() != null) {
-            data.put("code", result.getCode());
-        }
-        if (result.getMessage() != null) {
-            data.put("detailMessage", result.getMessage());
-        }
-        return data;
+        return YhqBootstrapStatePayload.build(
+            result.getStatus(),
+            result.getCode(),
+            result.getMessage(),
+            result.isLoading(),
+            result.isSuccess()
+        );
     }
 
     private void rejectBootstrapFailure(PluginCall call, SecureQuestionsStore.BootstrapResult result) {

@@ -5,6 +5,7 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.os.Build;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
@@ -18,13 +19,20 @@ public final class YhqReminderScheduler {
     private static final String UNIQUE_WORK_NAME = "yhq_daily_test_reminder";
     private static final int REMINDER_HOUR_OF_DAY = 20;
     private static final int REMINDER_MINUTE = 0;
+    private static final long MIN_INITIAL_DELAY_MS = TimeUnit.MINUTES.toMillis(1);
 
     private YhqReminderScheduler() {
     }
 
+    // Only touch WorkManager when the desired reminder state actually changed.
+    @VisibleForTesting
+    static boolean shouldSyncReminderSchedule(boolean previousState, boolean shouldSchedule) {
+        return previousState != shouldSchedule;
+    }
+
     public static void syncReminderSchedule(Context context, boolean shouldSchedule) {
         final boolean previousState = YhqReminderPreferences.getLastReminderScheduleState(context);
-        if (previousState == shouldSchedule) {
+        if (!shouldSyncReminderSchedule(previousState, shouldSchedule)) {
             return;
         }
 
@@ -51,7 +59,8 @@ public final class YhqReminderScheduler {
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             UNIQUE_WORK_NAME,
-            ExistingPeriodicWorkPolicy.UPDATE,
+            // KEEP avoids resetting the existing initial delay on redundant enable flows.
+            ExistingPeriodicWorkPolicy.KEEP,
             request
         );
     }
@@ -81,6 +90,7 @@ public final class YhqReminderScheduler {
     }
 
     private static long computeInitialDelayMs() {
+        // WorkManager should not fire immediately after enqueue.
         final Calendar now = Calendar.getInstance();
         final Calendar nextRun = Calendar.getInstance();
         nextRun.set(Calendar.HOUR_OF_DAY, REMINDER_HOUR_OF_DAY);
@@ -92,6 +102,6 @@ public final class YhqReminderScheduler {
             nextRun.add(Calendar.DAY_OF_YEAR, 1);
         }
 
-        return Math.max(TimeUnit.MINUTES.toMillis(1), nextRun.getTimeInMillis() - now.getTimeInMillis());
+        return Math.max(MIN_INITIAL_DELAY_MS, nextRun.getTimeInMillis() - now.getTimeInMillis());
     }
 }

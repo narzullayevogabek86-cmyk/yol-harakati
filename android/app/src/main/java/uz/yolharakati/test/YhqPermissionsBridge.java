@@ -130,12 +130,17 @@ public class YhqPermissionsBridge {
     private void applyNotificationsPreference(boolean enabled, boolean requestPermissionIfNeeded) {
         YhqReminderPreferences.setNotificationsEnabledPreference(activity, enabled);
 
-        if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !isNotificationsGranted()) {
-            if (requestPermissionIfNeeded) {
-                markStartupPromptShown();
-                requestRuntimeNotificationsPermission();
-                return;
-            }
+        if (
+            YhqNotificationsPolicy.resolvePreferenceChange(
+                enabled,
+                isNotificationsGranted(),
+                requestPermissionIfNeeded,
+                Build.VERSION.SDK_INT
+            ) == YhqNotificationsPolicy.PreferenceChangeAction.REQUEST_RUNTIME_PERMISSION
+        ) {
+            markStartupPromptShown();
+            requestRuntimeNotificationsPermission();
+            return;
         }
 
         syncReminderSchedule();
@@ -143,16 +148,20 @@ public class YhqPermissionsBridge {
     }
 
     private void syncReminderSchedule() {
-        final boolean shouldSchedule =
-            YhqReminderPreferences.areNotificationsEnabledPreference(activity) && isNotificationsGranted();
+        final boolean shouldSchedule = YhqNotificationsPolicy.shouldActivateReminderSchedule(
+            YhqReminderPreferences.areNotificationsEnabledPreference(activity),
+            isNotificationsGranted()
+        );
         YhqReminderScheduler.syncReminderSchedule(activity, shouldSchedule);
     }
 
     private boolean shouldPromptForNotificationsOnStartup() {
-        return YhqReminderPreferences.areNotificationsEnabledPreference(activity)
-            && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-            && !isNotificationsGranted()
-            && !wasStartupPromptShown();
+        return YhqNotificationsPolicy.shouldPromptOnStartup(
+            YhqReminderPreferences.areNotificationsEnabledPreference(activity),
+            isNotificationsGranted(),
+            wasStartupPromptShown(),
+            Build.VERSION.SDK_INT
+        );
     }
 
     private void requestRuntimeNotificationsPermission() {
